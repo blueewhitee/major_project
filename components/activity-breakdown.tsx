@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react"
 import {
-  fetchMediaBreakdown,
-  type MediaBreakdownItem,
+  fetchTop5Activities,
+  fetchVideoBreakdown,
+  type Top5Response,
+  type VideoContentBreakdown,
 } from "@/lib/activitywatch"
 
 const TOP_DISTRACTING_COUNT = 5
+type Top5Window = "today" | "7d"
 
 /** Map app/site name to domain for favicon URL (Google favicon service). */
 function getFaviconDomain(name: string): string {
@@ -184,85 +187,96 @@ function TikTokIcon() {
   )
 }
 
-const productiveApps = [
-  { name: "VS Code", time: "3h 10m", percentage: 100, Icon: VSCodeIcon },
-  { name: "Google Docs", time: "1h 30m", percentage: 47, Icon: GoogleDocsIcon },
-  { name: "Figma", time: "45m", percentage: 24, Icon: FigmaIcon },
-  { name: "Notion", time: "35m", percentage: 18, Icon: NotionIcon },
-  { name: "Terminal", time: "20m", percentage: 11, Icon: TerminalIcon },
-]
-
-const FALLBACK_DISTRACTING: Array<{
-  name: string
-  time: string
-  percentage: number
-  Icon: React.ComponentType
-}> = [
-  { name: "Instagram", time: "1h 25m", percentage: 100, Icon: InstagramIcon },
-  { name: "Twitter", time: "50m", percentage: 59, Icon: TwitterIcon },
-  { name: "Reddit", time: "35m", percentage: 41, Icon: RedditIcon },
-  { name: "YouTube", time: "25m", percentage: 29, Icon: YouTubeIcon },
-  { name: "TikTok", time: "15m", percentage: 18, Icon: TikTokIcon },
-]
+function formatLastUpdated(lastUpdated: string | null): string {
+  if (!lastUpdated) return "No recent events"
+  const ts = new Date(lastUpdated)
+  const diffSecs = Math.floor((Date.now() - ts.getTime()) / 1000)
+  if (diffSecs < 60) return "Updated <1m ago"
+  const mins = Math.floor(diffSecs / 60)
+  if (mins < 60) return `Updated ${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  return `Updated ${hours}h ago`
+}
 
 export function ActivityBreakdown() {
-  const [distracting, setDistracting] = useState<MediaBreakdownItem[] | null>(null)
-  const [distractingLoading, setDistractingLoading] = useState(true)
-  const [distractingError, setDistractingError] = useState<string | null>(null)
+  const [top5Window, setTop5Window] = useState<Top5Window>("today")
+  const [top5, setTop5] = useState<Top5Response | null>(null)
+  const [top5Loading, setTop5Loading] = useState(true)
+  const [top5Error, setTop5Error] = useState<string | null>(null)
+
+  const [video, setVideo] = useState<VideoContentBreakdown | null>(null)
+  const [videoLoading, setVideoLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
-    setDistractingLoading(true)
-    setDistractingError(null)
-    fetchMediaBreakdown({ todayOnly: true })
-      .then((data) => {
-        if (!cancelled) setDistracting(data)
-      })
-      .catch((err) => {
-        if (!cancelled) setDistractingError(err instanceof Error ? err.message : "Failed to load")
-      })
-      .finally(() => {
-        if (!cancelled) setDistractingLoading(false)
-      })
+
+    async function loadTop5() {
+      try {
+        if (!cancelled) {
+          setTop5Error(null)
+        }
+        const data = await fetchTop5Activities(top5Window)
+        if (!cancelled) setTop5(data)
+      } catch (err) {
+        if (!cancelled) setTop5Error(err instanceof Error ? err.message : "Failed to load")
+      } finally {
+        if (!cancelled) setTop5Loading(false)
+      }
+    }
+
+    setTop5Loading(true)
+    loadTop5()
+    const top5Timer = setInterval(loadTop5, 30_000)
+
+    setVideoLoading(true)
+    fetchVideoBreakdown({ todayOnly: true })
+      .then((data) => { if (!cancelled) setVideo(data) })
+      .catch(() => { if (!cancelled) setVideo(null) })
+      .finally(() => { if (!cancelled) setVideoLoading(false) })
+
     return () => {
       cancelled = true
+      clearInterval(top5Timer)
     }
-  }, [])
-
-  const hasDistractingData = distracting && distracting.length > 0
-  const useFallback = !distractingLoading && !!distractingError
+  }, [top5Window])
+  const productive = top5?.productiveTop5 ?? []
+  const distracting = top5?.distractingTop5 ?? []
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 flex flex-col h-full">
-      <h2 className="text-lg font-bold text-gray-900 mb-5">Activity Breakdown</h2>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-gray-900">Activity Breakdown</h2>
+        <div className="inline-flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
+          <button
+            type="button"
+            onClick={() => setTop5Window("today")}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+              top5Window === "today" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+            }`}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => setTop5Window("7d")}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+              top5Window === "7d" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+            }`}
+          >
+            7 Days
+          </button>
+        </div>
+      </div>
+      <p className={`text-xs mb-4 ${top5?.stale ? "text-amber-600" : "text-gray-500"}`}>
+        {formatLastUpdated(top5?.lastUpdated ?? null)}
+        {top5?.stale ? " · Collector stale" : ""}
+      </p>
 
       <div className="grid grid-cols-2 gap-6">
         {/* Productive Apps Column */}
         <div>
           <h3 className="text-sm font-bold text-gray-900 mb-3">Productive Apps</h3>
-          <div className="space-y-3">
-            {productiveApps.map((app) => (
-              <div key={app.name}>
-                <div className="flex items-center gap-2 mb-1">
-                  <app.Icon />
-                  <span className="text-sm text-gray-700 flex-1">{app.name}</span>
-                  <span className="text-sm font-medium text-gray-500">{app.time}</span>
-                </div>
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#a3b18a] rounded-full transition-all duration-700"
-                    style={{ width: `${app.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Distracting Activities Column — data from ActivityWatch */}
-        <div>
-          <h3 className="text-sm font-bold text-gray-900 mb-3">Distracting Activities</h3>
-          {distractingLoading ? (
+          {top5Loading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="animate-pulse">
@@ -275,33 +289,49 @@ export function ActivityBreakdown() {
                 </div>
               ))}
             </div>
-          ) : useFallback ? (
+          ) : productive.length > 0 ? (
             <div className="space-y-3">
-              {distractingError && (
-                <p className="text-xs text-amber-600 mb-2">
-                  ActivityWatch unavailable — showing sample data.
-                </p>
-              )}
-              {FALLBACK_DISTRACTING.map((activity) => (
-                <div key={activity.name}>
+              {productive.slice(0, TOP_DISTRACTING_COUNT).map((item) => (
+                <div key={item.name}>
                   <div className="flex items-center gap-2 mb-1">
-                    <activity.Icon />
-                    <span className="text-sm text-gray-700 flex-1">{activity.name}</span>
-                    <span className="text-sm font-medium text-gray-500">{activity.time}</span>
+                    <SiteIcon name={item.name} />
+                    <span className="text-sm text-gray-700 flex-1">{item.name}</span>
+                    <span className="text-sm font-medium text-gray-500">{item.formattedTime}</span>
                   </div>
                   <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#d4a373] rounded-full transition-all duration-700"
-                      style={{ width: `${activity.percentage}%` }}
+                      className="h-full bg-[#a3b18a] rounded-full transition-all duration-700"
+                      style={{ width: `${item.percentage}%` }}
                     />
                   </div>
                 </div>
               ))}
             </div>
-          ) : hasDistractingData ? (
+          ) : (
+            <p className="text-sm text-gray-500">No productive activity in this period.</p>
+          )}
+        </div>
+
+        {/* Distracting Activities Column */}
+        <div>
+          <h3 className="text-sm font-bold text-gray-900 mb-3">Distracting Activities</h3>
+          {top5Loading ? (
             <div className="space-y-3">
-              {distracting!.slice(0, TOP_DISTRACTING_COUNT).map((activity) => (
-                <div key={`${activity.category}-${activity.name}`}>
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-5 h-5 rounded bg-gray-200" />
+                    <div className="h-4 flex-1 bg-gray-100 rounded max-w-[80px]" />
+                    <div className="h-4 w-12 bg-gray-100 rounded" />
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : distracting.length > 0 ? (
+            <div className="space-y-3">
+              {distracting.slice(0, TOP_DISTRACTING_COUNT).map((activity) => (
+                <div key={activity.name}>
                   <div className="flex items-center gap-2 mb-1">
                     <SiteIcon name={activity.name} />
                     <span className="text-sm text-gray-700 flex-1">{activity.name}</span>
@@ -319,7 +349,9 @@ export function ActivityBreakdown() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No distracting activity in this period.</p>
+            <p className="text-sm text-gray-500">
+              {top5Error ? "Top-5 source unavailable right now." : "No distracting activity in this period."}
+            </p>
           )}
         </div>
       </div>
@@ -327,14 +359,48 @@ export function ActivityBreakdown() {
       {/* Video Consumption */}
       <div className="mt-auto pt-6 border-t border-gray-100">
         <h3 className="text-sm font-bold text-gray-900 mb-3">Video Consumption</h3>
-        <div className="h-4 bg-gray-100 rounded-full overflow-hidden flex">
-          <div className="h-full bg-[#6b7f5e] rounded-l-full" style={{ width: "60%" }} />
-          <div className="h-full bg-[#d4a373] rounded-r-full" style={{ width: "40%" }} />
-        </div>
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-gray-500">60% Long Form</span>
-          <span className="text-xs text-gray-500">40% Short Form</span>
-        </div>
+        {videoLoading ? (
+          <div className="h-4 bg-gray-100 rounded-full animate-pulse" />
+        ) : video && (video.shortFormSeconds > 0 || video.longFormSeconds > 0) ? (
+          <>
+            <div className="h-4 bg-gray-100 rounded-full overflow-hidden flex">
+              {video.longFormPercent > 0 && (
+                <div
+                  className="h-full bg-[#6b7f5e] transition-all duration-700"
+                  style={{ width: `${video.longFormPercent}%`, borderRadius: video.shortFormPercent === 0 ? "9999px" : "9999px 0 0 9999px" }}
+                />
+              )}
+              {video.shortFormPercent > 0 && (
+                <div
+                  className="h-full bg-[#d4a373] transition-all duration-700"
+                  style={{ width: `${video.shortFormPercent}%`, borderRadius: video.longFormPercent === 0 ? "9999px" : "0 9999px 9999px 0" }}
+                />
+              )}
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-gray-500">{video.longFormPercent}% Long Form</span>
+              <span className="text-xs text-gray-500">{video.shortFormPercent}% Short Form</span>
+            </div>
+            {video.entries.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {video.entries.slice(0, 3).map((e) => (
+                  <div key={e.label} className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: e.type === "long" ? "#6b7f5e" : "#d4a373" }}
+                      />
+                      <span className="text-xs text-gray-600">{e.label}</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{e.formattedTime}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-gray-400">No video activity today.</p>
+        )}
       </div>
     </div>
   )

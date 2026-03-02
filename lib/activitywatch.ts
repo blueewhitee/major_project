@@ -130,6 +130,25 @@ export interface MediaBreakdownItem {
   percentage: number
 }
 
+export interface TopActivityItem {
+  name: string
+  durationSeconds: number
+  formattedTime: string
+  percentage: number
+  eventCount: number
+}
+
+export interface Top5Response {
+  productiveTop5: TopActivityItem[]
+  distractingTop5: TopActivityItem[]
+  lastUpdated: string | null
+  generatedAt: string
+  totalRows: number
+  stale: boolean
+  staleMinutes: number | null
+  window?: { start: string; end: string }
+}
+
 // --- Helpers ---
 export function formatDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`
@@ -299,6 +318,116 @@ export async function fetchMediaBreakdown(options?: {
   return flat.sort((a, b) => b.durationSeconds - a.durationSeconds)
 }
 
+// ─── Video Consumption Tracker ────────────────────────────────────────────────
+
+const SHORT_FORM_PATTERNS: { pattern: string; label: string }[] = [
+  { pattern: "youtube.com/shorts/",    label: "YouTube Shorts"     },
+  { pattern: "instagram.com/reels/",   label: "Instagram Reels"    },
+  { pattern: "instagram.com/reel/",    label: "Instagram Reels"    },
+  { pattern: "tiktok.com",             label: "TikTok"             },
+  { pattern: "facebook.com/reels/",    label: "Facebook Reels"     },
+  { pattern: "twitter.com/i/status",   label: "X / Twitter Clips"  },
+  { pattern: "x.com/i/status",         label: "X / Twitter Clips"  },
+  { pattern: "snapchat.com/spotlight", label: "Snapchat Spotlight" },
+  { pattern: "pinterest.com/pin/",     label: "Pinterest Video"    },
+]
+
+const LONG_FORM_PATTERNS: { pattern: string; label: string }[] = [
+  { pattern: "youtube.com/watch",  label: "YouTube Videos" },
+  { pattern: "youtube.com/feed",   label: "YouTube Feed"   },
+  { pattern: "netflix.com/watch",  label: "Netflix"        },
+  { pattern: "primevideo.com",     label: "Prime Video"    },
+  { pattern: "hotstar.com",        label: "Hotstar"        },
+  { pattern: "twitch.tv",          label: "Twitch"         },
+  { pattern: "vimeo.com",          label: "Vimeo"          },
+  { pattern: "disneyplus.com",     label: "Disney+"        },
+]
+
+export interface ContentEntry {
+  label: string
+  type: "short" | "long"
+  totalSeconds: number
+  visitCount: number
+  formattedTime: string
+}
+
+export interface VideoContentBreakdown {
+  shortFormSeconds: number
+  longFormSeconds: number
+  shortFormPercent: number
+  longFormPercent: number
+  entries: ContentEntry[]
+}
+
+function classifyWebEvents(events: AWBucketEvent[]): ContentEntry[] {
+  const map = new Map<string, { type: "short" | "long"; totalSeconds: number; visitCount: number }>()
+
+  for (const event of events) {
+    const url = (event.data?.url as string) ?? ""
+    if (!url || event.duration <= 0) continue
+
+    const shortMatch = SHORT_FORM_PATTERNS.find((p) => url.includes(p.pattern))
+    if (shortMatch) {
+      const ex = map.get(shortMatch.label)
+      if (ex) { ex.totalSeconds += event.duration; ex.visitCount++ }
+      else map.set(shortMatch.label, { type: "short", totalSeconds: event.duration, visitCount: 1 })
+      continue
+    }
+
+    const longMatch = LONG_FORM_PATTERNS.find((p) => url.includes(p.pattern))
+    if (longMatch) {
+      const ex = map.get(longMatch.label)
+      if (ex) { ex.totalSeconds += event.duration; ex.visitCount++ }
+      else map.set(longMatch.label, { type: "long", totalSeconds: event.duration, visitCount: 1 })
+    }
+  }
+
+  return Array.from(map.entries())
+    .map(([label, d]) => ({ label, ...d, formattedTime: formatDuration(d.totalSeconds) }))
+    .sort((a, b) => b.totalSeconds - a.totalSeconds)
+}
+
+/**
+ * Fetch short-form vs long-form video breakdown for today.
+ */
+export async function fetchVideoBreakdown(options?: {
+  host?: string
+  todayOnly?: boolean
+  lastDays?: number
+  timeperiod?: { start: string; end: string }
+}): Promise<VideoContentBreakdown> {
+  const { start, end } = options?.todayOnly
+    ? getTodayRange()
+    : options?.timeperiod ?? getDateRangeForLastDays(options?.lastDays ?? 1)
+
+  const host = options?.host ?? AW_HOST
+
+  let webBucket: string | null = null
+  if (host) {
+    webBucket = `aw-watcher-web-chrome_${host}`
+  } else {
+    const ids = await listBucketIds()
+    webBucket = ids.find((id) => id.startsWith("aw-watcher-web-chrome")) ?? null
+  }
+
+  if (!webBucket) throw new Error("ActivityWatch: no web bucket found")
+
+  const events = await fetchBucketEvents(webBucket, start, end)
+  const entries = classifyWebEvents(events)
+
+  const shortFormSeconds = entries.filter((e) => e.type === "short").reduce((s, e) => s + e.totalSeconds, 0)
+  const longFormSeconds  = entries.filter((e) => e.type === "long").reduce((s, e) => s + e.totalSeconds, 0)
+  const totalSeconds = shortFormSeconds + longFormSeconds
+
+  return {
+    shortFormSeconds,
+    longFormSeconds,
+    shortFormPercent: totalSeconds > 0 ? Math.round((shortFormSeconds / totalSeconds) * 100) : 0,
+    longFormPercent:  totalSeconds > 0 ? Math.round((longFormSeconds  / totalSeconds) * 100) : 0,
+    entries,
+  }
+}
+
 /**
  * Fetch distracting-activity summary from ActivityWatch and return items
  * suitable for the "Distracting Activities" UI (name, duration, percentage).
@@ -350,4 +479,12 @@ export async function fetchDistractingActivities(options?: {
   })
 
   return items.sort((a, b) => b.durationSeconds - a.durationSeconds)
+}
+
+export async function fetchTop5Activities(window: "today" | "12h" | "7d" = "today"): Promise<Top5Response> {
+  const res = await fetch(`/api/activity/top-5?window=${window}`)
+  if (!res.ok) {
+    throw new Error(`Top-5 API error: ${res.status}`)
+  }
+  return res.json()
 }

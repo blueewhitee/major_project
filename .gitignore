@@ -8,3 +8,12 @@ node_modules/
 .next/
 .env*.local
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# model_server — runtime / personal data
+model_server/database/
+model_server/*.log
