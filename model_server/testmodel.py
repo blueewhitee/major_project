@@ -22,6 +22,21 @@ LABEL_MAP = {
 }
 HYPOTHESIS_TEMPLATE = "This is {}."
 
+# ── Thematic category labels (zero-shot, 10 clusters) ────────────
+CATEGORY_LABELS = [
+    "education",
+    "entertainment",
+    "news",
+    "music",
+    "gaming",
+    "shopping",
+    "productivity",
+    "health",
+    "social",
+    "finance",
+]
+CATEGORY_THRESHOLD = 0.45
+
 # ── Pre-compiled patterns ─────────────────────────────────────────
 _RE_DOMAIN = re.compile(r"https?://(?:www\.)?([^/:]+)")
 _RE_TLDS = re.compile(
@@ -125,6 +140,32 @@ def classify(url: str, title: str, description: str = "") -> dict:
             LABEL_MAP[lab]: round(scr, 3)
             for lab, scr in zip(result["labels"], result["scores"])
         },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  CLASSIFY CATEGORY
+# ═══════════════════════════════════════════════════════════════════
+def classify_category(url: str, title: str, description: str = "") -> dict:
+    """Run a second zero-shot pass to assign one of 10 thematic categories."""
+    premise = build_premise(url, title, description)
+
+    t0 = time.perf_counter()
+    result = classifier(
+        sequences=premise,
+        candidate_labels=CATEGORY_LABELS,
+        hypothesis_template=HYPOTHESIS_TEMPLATE,
+        multi_label=False,
+    )
+    latency_ms = (time.perf_counter() - t0) * 1000
+
+    top_label = result["labels"][0]
+    top_score = result["scores"][0]
+
+    return {
+        "category":    top_label if top_score >= CATEGORY_THRESHOLD else "uncategorized",
+        "confidence":  round(top_score, 3),
+        "latency_ms":  round(latency_ms, 1),
     }
 
 

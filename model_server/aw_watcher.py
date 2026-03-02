@@ -4,6 +4,7 @@ import os
 import requests
 from datetime import datetime, timezone
 from urllib.parse import urlparse
+import re
 
 # ═══════════════════════════════════════════════════════════════════
 #  CONFIG
@@ -167,30 +168,82 @@ def classify_app_event(event: dict) -> dict | None:
     return resp.json()
 
 
-def _build_browser_description(url: str, title: str, data: dict) -> str:
-    parts = []
-    try:
-        host = (urlparse(url).hostname or "").lower()
-    except Exception:
-        host = ""
+_STOPWORDS = {
+    "the", "and", "for", "with", "that", "this", "from", "your", "you",
+    "are", "was", "were", "have", "has", "how", "what", "when", "why",
+    "new", "home", "page", "watch", "video", "shorts", "feed", "official",
+}
 
+
+def _title_keywords(title: str, max_words: int = 5) -> str:
+    words = re.findall(r"[a-zA-Z0-9]{3,}", (title or "").lower())
+    unique: list[str] = []
+    for word in words:
+        if word in _STOPWORDS:
+            continue
+        if word not in unique:
+            unique.append(word)
+        if len(unique) >= max_words:
+            break
+    return ", ".join(unique)
+
+
+def _infer_content_type(host: str, path: str) -> tuple[str, str]:
+    host = host.lower()
+    path = path.lower()
     if "youtube.com" in host or "youtu.be" in host:
-        content_type = "video"
-        if "/shorts/" in url:
-            content_type = "short-form video"
-        elif "/watch" in url:
-            content_type = "long-form video"
-        elif "/feed/" in url:
-            content_type = "feed/browsing page"
-        parts.append(f"YouTube {content_type}.")
-    elif host:
-        parts.append(f"Website host: {host}.")
+        if "/shorts/" in path:
+            return "short-form video", "entertainment"
+        if "/watch" in path:
+            return "long-form video", "learning_or_entertainment"
+        return "video browsing page", "entertainment"
+    if "reddit.com" in host:
+        return "forum thread", "discussion"
+    if "github.com" in host or "stackoverflow.com" in host:
+        return "technical reference", "learning"
+    if any(news in host for news in ("bbc.", "cnn.", "reuters.", "ndtv.", "nytimes.", "thehindu.")):
+        return "news article", "news"
+    if any(shop in host for shop in ("amazon.", "flipkart.", "myntra.", "ebay.")):
+        return "product/review page", "shopping"
+    if "wikipedia.org" in host:
+        return "reference article", "learning"
+    return "web page", "unknown"
 
+
+def _build_browser_description(url: str, title: str, data: dict) -> str:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    path = (parsed.path or "").lower()
+    query = (parsed.query or "").lower()
+    keywords = _title_keywords(title)
+    content_type, intent = _infer_content_type(host, path)
+
+    hints: list[str] = []
+    if "/tutorial" in path or "tutorial" in query:
+        hints.append("tutorial")
+    if "/course" in path or "course" in query:
+        hints.append("course")
+    if "/news" in path:
+        hints.append("news")
+    if "/review" in path or "review" in query:
+        hints.append("review")
+    if "/r/" in path:
+        hints.append("community")
+
+    parts = [
+        f"Platform: {host or 'unknown'}.",
+        f"Content type: {content_type}.",
+        f"Likely intent: {intent}.",
+    ]
+    if hints:
+        parts.append(f"URL hints: {', '.join(hints[:4])}.")
     if data.get("audible"):
         parts.append("Tab is currently audible.")
     if title:
         parts.append(f"Window title: {title[:180]}.")
-    return " ".join(parts).strip()
+    if keywords:
+        parts.append(f"Title keywords: {keywords}.")
+    return " ".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════════════

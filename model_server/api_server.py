@@ -4,10 +4,15 @@ import uvicorn
 import sys
 import os
 import sqlite3
+import threading
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
-from testmodel import classify  # model loads at import time
+from testmodel import classify, classify_category  # model loads at import time
+
+# Single lock that serialises all NLI model calls — prevents concurrent
+# model access when FastAPI processes requests in multiple threads.
+model_lock = threading.Lock()
 
 app = FastAPI(title="Focus Tracker Classifier", version="1.0.0")
 
@@ -52,21 +57,29 @@ def _init_sqlite_if_needed() -> None:
             conn.execute("ALTER TABLE events ADD COLUMN duration_seconds REAL")
         if "event_timestamp" not in columns:
             conn.execute("ALTER TABLE events ADD COLUMN event_timestamp TEXT")
+        if "category" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN category TEXT")
+        if "category_confidence" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN category_confidence REAL")
 
 
 def _log_to_sqlite(url: str, title: str, description: str, result: dict,
                    source: str = "browser", app_name: str = "",
                    duration_seconds: float = 0.0,
-                   event_timestamp: str = "") -> None:
+                   event_timestamp: str = "",
+                   cat_result: dict | None = None) -> None:
     ts = datetime.now().isoformat(timespec="milliseconds")
+    category = cat_result["category"] if cat_result else None
+    category_confidence = cat_result["confidence"] if cat_result else None
     with sqlite3.connect(DB_FILE) as conn:
         conn.execute(
             """
             INSERT INTO events (
                 timestamp, event_timestamp, duration_seconds, source, app, url, title, description,
                 classification, confidence, latency_ms,
-                score_productive, score_distractive
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                score_productive, score_distractive,
+                category, category_confidence
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 ts,
@@ -82,6 +95,8 @@ def _log_to_sqlite(url: str, title: str, description: str, result: dict,
                 result["latency_ms"],
                 result["raw_scores"]["PRODUCTIVE"],
                 result["raw_scores"]["DISTRACTIVE"],
+                category,
+                category_confidence,
             ),
         )
         conn.commit()
@@ -131,13 +146,75 @@ DISTRACTIVE_APPS = {
 }
 
 
+# ── Static category mapping for known apps (skips NLI for category pass) ──
+APP_CATEGORY_MAP: dict[str, str] = {
+    # IDEs / editors → productivity
+    "cursor": "productivity",
+    "cursor.exe": "productivity",
+    "code": "productivity",
+    "code.exe": "productivity",
+    "pycharm64": "productivity",
+    "pycharm64.exe": "productivity",
+    "pycharm": "productivity",
+    "webstorm64": "productivity",
+    "webstorm64.exe": "productivity",
+    "idea64": "productivity",
+    "idea64.exe": "productivity",
+    "clion64": "productivity",
+    "rider64": "productivity",
+    "sublime_text": "productivity",
+    "notepad++": "productivity",
+    "vim": "productivity",
+    "nvim": "productivity",
+    "emacs": "productivity",
+    # Terminals → productivity
+    "windowsterminal": "productivity",
+    "windowsterminal.exe": "productivity",
+    "powershell": "productivity",
+    "powershell.exe": "productivity",
+    "pwsh": "productivity",
+    "cmd": "productivity",
+    "bash": "productivity",
+    "zsh": "productivity",
+    "mintty": "productivity",
+    "alacritty": "productivity",
+    "wezterm": "productivity",
+    # Dev tools → productivity
+    "postman": "productivity",
+    "dbeaver": "productivity",
+    "figma": "productivity",
+    # Note-taking / docs → productivity
+    "notion": "productivity",
+    "obsidian": "productivity",
+    "excel": "productivity",
+    "winword": "productivity",
+    "powerpnt": "productivity",
+    # Communication → productivity
+    "zoom": "productivity",
+    "teams": "productivity",
+    "slack": "productivity",
+    # Entertainment / distractive apps
+    "spotify": "music",
+    "spotify.exe": "music",
+    "vlc": "entertainment",
+    "vlc.exe": "entertainment",
+    "discord": "social",
+    "discord.exe": "social",
+    "steam": "gaming",
+    "steam.exe": "gaming",
+    "epicgameslauncher": "gaming",
+    "epicgameslauncher.exe": "gaming",
+}
+
+
 _init_sqlite_if_needed()
 
 
 def _log_activity(url: str, title: str, description: str, result: dict,
                   source: str = "browser", app_name: str = "",
                   duration_seconds: float = 0.0,
-                  event_timestamp: str = "") -> None:
+                  event_timestamp: str = "",
+                  cat_result: dict | None = None) -> None:
     _log_to_sqlite(
         url,
         title,
@@ -147,6 +224,7 @@ def _log_activity(url: str, title: str, description: str, result: dict,
         app_name=app_name,
         duration_seconds=duration_seconds,
         event_timestamp=event_timestamp,
+        cat_result=cat_result,
     )
 
 
@@ -187,7 +265,9 @@ def health():
 @app.post("/classify", response_model=ClassifyResponse)
 def classify_endpoint(req: ClassifyRequest):
     try:
-        result = classify(url=req.url, title=req.title, description=req.description)
+        with model_lock:
+            result = classify(url=req.url, title=req.title, description=req.description)
+            cat_result = classify_category(url=req.url, title=req.title, description=req.description)
         _log_activity(
             req.url,
             req.title,
@@ -196,6 +276,7 @@ def classify_endpoint(req: ClassifyRequest):
             source="browser",
             duration_seconds=req.duration_seconds,
             event_timestamp=req.event_timestamp,
+            cat_result=cat_result,
         )
         return result
     except Exception as exc:
@@ -228,12 +309,27 @@ def classify_app_endpoint(req: ClassifyAppRequest):
             }
         else:
             # Unknown app — let the ML model judge by window title
-            result = classify(
-                url=f"app://{app_lower}",
-                title=req.title,
-                description=f"Desktop application: {req.app}",
-            )
+            with model_lock:
+                result = classify(
+                    url=f"app://{app_lower}",
+                    title=req.title,
+                    description=f"Desktop application: {req.app}",
+                )
             result["premise"] = premise
+
+        # Resolve category: use static map for known apps, NLI for unknown ones
+        if app_lower in APP_CATEGORY_MAP:
+            cat_result = {
+                "category":   APP_CATEGORY_MAP[app_lower],
+                "confidence": 1.0,
+            }
+        else:
+            with model_lock:
+                cat_result = classify_category(
+                    url=f"app://{app_lower}",
+                    title=req.title,
+                    description=f"Desktop application: {req.app}",
+                )
 
         _log_activity(
             url=f"app://{app_lower}",
@@ -244,6 +340,7 @@ def classify_app_endpoint(req: ClassifyAppRequest):
             app_name=req.app,
             duration_seconds=req.duration_seconds,
             event_timestamp=req.event_timestamp,
+            cat_result=cat_result,
         )
         return result
     except Exception as exc:
