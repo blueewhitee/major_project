@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ArrowRight, PieChart, List } from "lucide-react"
+import { ArrowRight, PieChart, List, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // ── Types ────────────────────────────────────────────────────────
@@ -25,12 +25,24 @@ type TransitionItem = {
 
 type CategoriesData = {
   todayCategories: CategoryItem[]
+  recapCategories?: CategoryItem[]
   allTimeCategories: CategoryItem[]
   transitions: TransitionItem[]
   stale: boolean
   staleMinutes: number | null
   lastUpdated: string | null
   generatedAt: string
+}
+
+type DrilldownScope = "today" | "7d"
+
+type DrilldownItem = {
+  name: string
+  type: "site" | "app"
+  durationSeconds: number
+  percent: number
+  eventCount: number
+  formattedTime: string
 }
 
 // ── Per-category colour tokens ───────────────────────────────────
@@ -176,6 +188,11 @@ function SkeletonCategoryItem({ wide = false }: { wide?: boolean }) {
 export function CategoryBreakdown() {
   const [data, setData] = useState<CategoriesData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [drilldownOpen, setDrilldownOpen] = useState(false)
+  const [drilldownLoading, setDrilldownLoading] = useState(false)
+  const [drilldownCategoryTitle, setDrilldownCategoryTitle] = useState("")
+  const [drilldownScope, setDrilldownScope] = useState<DrilldownScope>("today")
+  const [drilldownItems, setDrilldownItems] = useState<DrilldownItem[]>([])
 
   useEffect(() => {
     fetch("/api/activity/categories")
@@ -183,6 +200,21 @@ export function CategoryBreakdown() {
       .then((d) => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
+
+  const recapCategories = data?.recapCategories ?? data?.allTimeCategories ?? []
+
+  function openDrilldown(categoryKey: string, scope: DrilldownScope) {
+    const cat = getCat(categoryKey)
+    setDrilldownCategoryTitle(cat?.title ?? categoryKey)
+    setDrilldownScope(scope)
+    setDrilldownOpen(true)
+    setDrilldownLoading(true)
+    fetch(`/api/activity/category-items?category=${encodeURIComponent(categoryKey)}&scope=${scope}`)
+      .then((r) => r.json())
+      .then((d) => setDrilldownItems((d?.topItems ?? []) as DrilldownItem[]))
+      .catch(() => setDrilldownItems([]))
+      .finally(() => setDrilldownLoading(false))
+  }
 
   return (
     <div
@@ -241,10 +273,14 @@ export function CategoryBreakdown() {
                       className="grid grid-cols-12 gap-4 px-6 py-5 items-center bg-white/50 dark:bg-slate-900/30 rounded-2xl hover:bg-white/80 dark:hover:bg-slate-800/40 transition-all border border-transparent hover:border-slate-200/50 dark:hover:border-slate-700/50 shadow-sm"
                     >
                       {/* From */}
-                      <div className={cn("col-span-3 font-semibold flex items-center gap-2", from.text)}>
+                      <button
+                        type="button"
+                        onClick={() => openDrilldown(t.fromCategoryKey, "7d")}
+                        className={cn("col-span-3 font-semibold flex items-center gap-2 text-left hover:opacity-80 transition-opacity", from.text)}
+                      >
                         <span className={cn("w-2 h-2 rounded-full shrink-0", from.dot)} />
                         {CAT[t.fromCategoryKey]?.title ?? t.fromCategory}
-                      </div>
+                      </button>
 
                       {/* Arrow */}
                       <div className="col-span-1 flex justify-center">
@@ -252,10 +288,14 @@ export function CategoryBreakdown() {
                       </div>
 
                       {/* To */}
-                      <div className={cn("col-span-3 font-semibold flex items-center gap-2", to.text)}>
+                      <button
+                        type="button"
+                        onClick={() => openDrilldown(t.toCategoryKey, "7d")}
+                        className={cn("col-span-3 font-semibold flex items-center gap-2 text-left hover:opacity-80 transition-opacity", to.text)}
+                      >
                         <span className={cn("w-2 h-2 rounded-full shrink-0", to.dot)} />
                         {CAT[t.toCategoryKey]?.title ?? t.toCategory}
-                      </div>
+                      </button>
 
                       {/* Strength bar */}
                       <div className="col-span-2 flex items-center gap-3">
@@ -304,7 +344,12 @@ export function CategoryBreakdown() {
                   const c = getCat(item.categoryKey)
                   if (!c) return null
                   return (
-                    <div key={i} className="flex items-center justify-between group">
+                    <button
+                      type="button"
+                      key={i}
+                      onClick={() => openDrilldown(item.categoryKey, "today")}
+                      className="w-full flex items-center justify-between group text-left"
+                    >
                       <div className="flex items-center gap-3">
                         <div
                           className={cn("w-3 h-3 rounded-full shrink-0", c.dot)}
@@ -322,7 +367,7 @@ export function CategoryBreakdown() {
                       >
                         {item.percent}%
                       </span>
-                    </div>
+                    </button>
                   )
                 })}
           </div>
@@ -333,19 +378,24 @@ export function CategoryBreakdown() {
           <h3 className="text-base font-semibold mb-7 text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <List className="w-5 h-5 text-emerald-500" />
             Dominant Topics Recap
-            <span className="ml-auto text-xs font-normal text-slate-400">All time</span>
+            <span className="ml-auto text-xs font-normal text-slate-400">Last 7 days</span>
           </h3>
 
           <div className="space-y-5">
             {loading
               ? [1, 2, 3, 4, 5].map((i) => <SkeletonCategoryItem key={i} wide />)
-              : (data?.allTimeCategories ?? []).length === 0
+              : recapCategories.length === 0
               ? <p className="text-sm text-slate-400 dark:text-slate-500">No categorised data yet.</p>
-              : data!.allTimeCategories.map((item, i) => {
+              : recapCategories.map((item, i) => {
                   const c = getCat(item.categoryKey)
                   if (!c) return null
                   return (
-                    <div key={i} className="flex items-start justify-between">
+                    <button
+                      type="button"
+                      key={i}
+                      onClick={() => openDrilldown(item.categoryKey, "7d")}
+                      className="w-full flex items-start justify-between text-left"
+                    >
                       <div className="flex gap-4">
                         <div
                           className={cn("mt-0.5 w-2.5 h-2.5 rounded-full shrink-0", c.dot)}
@@ -368,13 +418,81 @@ export function CategoryBreakdown() {
                       >
                         {item.percent}%
                       </span>
-                    </div>
+                    </button>
                   )
                 })}
           </div>
         </section>
 
       </div>
+
+      {/* Drilldown modal/drawer */}
+      {drilldownOpen && (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setDrilldownOpen(false)}
+          />
+          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl p-6 overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  {drilldownCategoryTitle}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Top 5 apps/sites · {drilldownScope === "today" ? "Today" : "Last 7 days"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() => setDrilldownOpen(false)}
+              >
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {drilldownLoading ? (
+                [1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="animate-pulse rounded-xl border border-slate-200/70 dark:border-slate-700/60 p-3">
+                    <div className="h-4 w-28 bg-slate-200 dark:bg-slate-700 rounded mb-2" />
+                    <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded" />
+                  </div>
+                ))
+              ) : drilldownItems.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No items found for this category in the selected window.
+                </p>
+              ) : (
+                drilldownItems.map((item, i) => (
+                  <div key={`${item.type}-${item.name}-${i}`} className="rounded-xl border border-slate-200/70 dark:border-slate-700/60 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          {item.name}
+                        </p>
+                        <p className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          {item.type}
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-300 tabular-nums">
+                        {item.percent}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <span>{item.formattedTime}</span>
+                      <span>{item.eventCount} events</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

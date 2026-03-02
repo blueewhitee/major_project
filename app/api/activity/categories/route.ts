@@ -48,7 +48,9 @@ export async function GET() {
     return NextResponse.json(
       {
         todayCategories: [],
+        recapCategories: [],
         allTimeCategories: [],
+        transitions: [],
         stale: true,
         staleMinutes: null,
         lastUpdated: null,
