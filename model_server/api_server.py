@@ -5,10 +5,13 @@ import sys
 import os
 import sqlite3
 import threading
+import time
+from collections import OrderedDict
+from typing import Any
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
-from testmodel import classify, classify_category  # model loads at import time
+from testmodel import classify, classify_category, classify_entertainment_trigger  # model loads at import time
 
 # Single lock that serialises all NLI model calls — prevents concurrent
 # model access when FastAPI processes requests in multiple threads.
@@ -17,6 +20,52 @@ model_lock = threading.Lock()
 app = FastAPI(title="Focus Tracker Classifier", version="1.0.0")
 
 DB_FILE = os.path.join(os.path.dirname(__file__), "database", "focus_tracker.db")
+
+# ═══════════════════════════════════════════════════════════════════
+#  In-memory LRU + TTL cache for repeated classifications
+# ═══════════════════════════════════════════════════════════════════
+CACHE_MAX_ITEMS = int(os.getenv("CLASSIFY_CACHE_MAX_ITEMS", "2000"))
+CACHE_TTL_SECONDS = int(os.getenv("CLASSIFY_CACHE_TTL_SECONDS", "600"))  # default: 10 min
+CACHE_NAMESPACE = os.getenv("CLASSIFY_CACHE_NAMESPACE", "v1")
+
+# key -> (expires_at_monotonic, value)
+_classify_cache: "OrderedDict[str, tuple[float, Any]]" = OrderedDict()
+cache_lock = threading.Lock()
+
+
+def _norm_text(value: str, max_len: int) -> str:
+    s = (value or "").strip().lower()
+    s = " ".join(s.split())
+    return s[:max_len]
+
+
+def _cache_key(stage: str, url: str, title: str, description: str = "") -> str:
+    n_url = _norm_text(url, 800)
+    n_title = _norm_text(title, 300)
+    n_desc = _norm_text(description, 300)
+    return f"{CACHE_NAMESPACE}|{stage}|{n_url}|{n_title}|{n_desc}"
+
+
+def _cache_get(key: str):
+    now = time.monotonic()
+    with cache_lock:
+        item = _classify_cache.get(key)
+        if not item:
+            return None
+        expires_at, value = item
+        if expires_at < now:
+            _classify_cache.pop(key, None)
+            return None
+        _classify_cache.move_to_end(key)
+        return value
+
+
+def _cache_set(key: str, value: Any) -> None:
+    with cache_lock:
+        _classify_cache[key] = (time.monotonic() + CACHE_TTL_SECONDS, value)
+        _classify_cache.move_to_end(key)
+        if len(_classify_cache) > CACHE_MAX_ITEMS:
+            _classify_cache.popitem(last=False)
 
 # ═══════════════════════════════════════════════════════════════════
 #  SQLITE helpers
@@ -61,16 +110,29 @@ def _init_sqlite_if_needed() -> None:
             conn.execute("ALTER TABLE events ADD COLUMN category TEXT")
         if "category_confidence" not in columns:
             conn.execute("ALTER TABLE events ADD COLUMN category_confidence REAL")
+        if "entertainment_trigger" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN entertainment_trigger TEXT")
+        if "trigger_confidence" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN trigger_confidence REAL")
+        if "trigger_source" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN trigger_source TEXT")
+        if "trigger_latency_ms" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN trigger_latency_ms REAL")
 
 
 def _log_to_sqlite(url: str, title: str, description: str, result: dict,
                    source: str = "browser", app_name: str = "",
                    duration_seconds: float = 0.0,
                    event_timestamp: str = "",
-                   cat_result: dict | None = None) -> None:
+                   cat_result: dict | None = None,
+                   trigger_result: dict | None = None) -> None:
     ts = datetime.now().isoformat(timespec="milliseconds")
     category = cat_result["category"] if cat_result else None
     category_confidence = cat_result["confidence"] if cat_result else None
+    entertainment_trigger = trigger_result["trigger"] if trigger_result else None
+    trigger_confidence = trigger_result["confidence"] if trigger_result else None
+    trigger_source = trigger_result["source"] if trigger_result else None
+    trigger_latency_ms = trigger_result["latency_ms"] if trigger_result else None
     with sqlite3.connect(DB_FILE) as conn:
         conn.execute(
             """
@@ -78,8 +140,9 @@ def _log_to_sqlite(url: str, title: str, description: str, result: dict,
                 timestamp, event_timestamp, duration_seconds, source, app, url, title, description,
                 classification, confidence, latency_ms,
                 score_productive, score_distractive,
-                category, category_confidence
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                category, category_confidence,
+                entertainment_trigger, trigger_confidence, trigger_source, trigger_latency_ms
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 ts,
@@ -97,6 +160,10 @@ def _log_to_sqlite(url: str, title: str, description: str, result: dict,
                 result["raw_scores"]["DISTRACTIVE"],
                 category,
                 category_confidence,
+                entertainment_trigger,
+                trigger_confidence,
+                trigger_source,
+                trigger_latency_ms,
             ),
         )
         conn.commit()
@@ -214,7 +281,8 @@ def _log_activity(url: str, title: str, description: str, result: dict,
                   source: str = "browser", app_name: str = "",
                   duration_seconds: float = 0.0,
                   event_timestamp: str = "",
-                  cat_result: dict | None = None) -> None:
+                  cat_result: dict | None = None,
+                  trigger_result: dict | None = None) -> None:
     _log_to_sqlite(
         url,
         title,
@@ -225,6 +293,7 @@ def _log_activity(url: str, title: str, description: str, result: dict,
         duration_seconds=duration_seconds,
         event_timestamp=event_timestamp,
         cat_result=cat_result,
+        trigger_result=trigger_result,
     )
 
 
@@ -265,9 +334,35 @@ def health():
 @app.post("/classify", response_model=ClassifyResponse)
 def classify_endpoint(req: ClassifyRequest):
     try:
-        with model_lock:
-            result = classify(url=req.url, title=req.title, description=req.description)
-            cat_result = classify_category(url=req.url, title=req.title, description=req.description)
+        cls_key = _cache_key("binary", req.url, req.title, req.description)
+        cat_key = _cache_key("category", req.url, req.title, req.description)
+        trig_key = _cache_key("trigger", req.url, req.title, req.description)
+
+        result = _cache_get(cls_key)
+        cat_result = _cache_get(cat_key)
+        trigger_result = None
+
+        if result is None:
+            with model_lock:
+                result = classify(url=req.url, title=req.title, description=req.description)
+            _cache_set(cls_key, result)
+
+        if cat_result is None:
+            with model_lock:
+                cat_result = classify_category(url=req.url, title=req.title, description=req.description)
+            _cache_set(cat_key, cat_result)
+
+        if (cat_result.get("category") or "").lower() == "entertainment":
+            trigger_result = _cache_get(trig_key)
+            if trigger_result is None:
+                with model_lock:
+                    trigger_result = classify_entertainment_trigger(
+                        url=req.url,
+                        title=req.title,
+                        description=req.description,
+                    )
+                _cache_set(trig_key, trigger_result)
+
         _log_activity(
             req.url,
             req.title,
@@ -277,6 +372,7 @@ def classify_endpoint(req: ClassifyRequest):
             duration_seconds=req.duration_seconds,
             event_timestamp=req.event_timestamp,
             cat_result=cat_result,
+            trigger_result=trigger_result,
         )
         return result
     except Exception as exc:
@@ -309,12 +405,18 @@ def classify_app_endpoint(req: ClassifyAppRequest):
             }
         else:
             # Unknown app — let the ML model judge by window title
-            with model_lock:
-                result = classify(
-                    url=f"app://{app_lower}",
-                    title=req.title,
-                    description=f"Desktop application: {req.app}",
-                )
+            app_url = f"app://{app_lower}"
+            app_desc = f"Desktop application: {req.app}"
+            cls_key = _cache_key("binary-app", app_url, req.title, app_desc)
+            result = _cache_get(cls_key)
+            if result is None:
+                with model_lock:
+                    result = classify(
+                        url=app_url,
+                        title=req.title,
+                        description=app_desc,
+                    )
+                _cache_set(cls_key, result)
             result["premise"] = premise
 
         # Resolve category: use static map for known apps, NLI for unknown ones
@@ -324,12 +426,18 @@ def classify_app_endpoint(req: ClassifyAppRequest):
                 "confidence": 1.0,
             }
         else:
-            with model_lock:
-                cat_result = classify_category(
-                    url=f"app://{app_lower}",
-                    title=req.title,
-                    description=f"Desktop application: {req.app}",
-                )
+            app_url = f"app://{app_lower}"
+            app_desc = f"Desktop application: {req.app}"
+            cat_key = _cache_key("category-app", app_url, req.title, app_desc)
+            cat_result = _cache_get(cat_key)
+            if cat_result is None:
+                with model_lock:
+                    cat_result = classify_category(
+                        url=app_url,
+                        title=req.title,
+                        description=app_desc,
+                    )
+                _cache_set(cat_key, cat_result)
 
         _log_activity(
             url=f"app://{app_lower}",

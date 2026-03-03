@@ -7,6 +7,7 @@ import { ActivityBreakdown } from "@/components/activity-breakdown"
 import { EfficiencyInsights } from "@/components/efficiency-insights"
 import { ProductivityTimeline } from "@/components/productivity-timeline"
 import { CategoryBreakdown } from "@/components/category-breakdown"
+import { TriggerAnalysisFeed } from "@/components/trigger-analysis-feed"
 
 const TABS = ["Summary", "Category", "Timeline", "Settings"] as const
 type Tab = (typeof TABS)[number]
@@ -43,9 +44,7 @@ export function DashboardShell() {
         {activeTab === "Category" && <CategoryBreakdown />}
 
         {activeTab === "Timeline" && (
-          <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-400">
-            Timeline view coming soon.
-          </div>
+          <TriggerAnalysisFeed />
         )}
 
         {activeTab === "Settings" && (
