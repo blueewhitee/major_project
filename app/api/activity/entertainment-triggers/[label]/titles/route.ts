@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { buildTitlesForLabel, type AWBucketEvent } from "@/lib/activitywatch"
+import { readCache } from "@/lib/activity-cache"
 
 const AW_BASE = process.env.ACTIVITYWATCH_URL ?? "http://localhost:5600/api/0"
 const HOST = process.env.NEXT_PUBLIC_ACTIVITYWATCH_HOST ?? ""
@@ -21,7 +22,7 @@ async function fetchEvents(
  * GET /api/activity/entertainment-triggers/[label]/titles
  *
  * Returns unique page titles for the given label, today only.
- * Sorted by totalSeconds descending.
+ * Uses cached web events when available to avoid bottleneck.
  */
 export async function GET(
   request: NextRequest,
@@ -33,15 +34,21 @@ export async function GET(
     const { label } = await params
     const decodedLabel = decodeURIComponent(label)
 
-    const now = new Date()
-    const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
-    const start = sod.toISOString()
-    const end = now.toISOString()
+    const cached = await readCache<AWBucketEvent[]>("web-events-today")
+    let events: AWBucketEvent[]
 
-    const webBucket = `aw-watcher-web-chrome_${HOST}`
-    const events = await fetchEvents(webBucket, start, end)
+    if (cached?.data) {
+      events = cached.data as AWBucketEvent[]
+    } else {
+      const now = new Date()
+      const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+      const start = sod.toISOString()
+      const end = now.toISOString()
+      const webBucket = `aw-watcher-web-chrome_${HOST}`
+      events = await fetchEvents(webBucket, start, end)
+    }
+
     const titles = buildTitlesForLabel(events, decodedLabel)
-
     return NextResponse.json({ titles })
   } catch (err) {
     console.error("entertainment-triggers titles error:", err)

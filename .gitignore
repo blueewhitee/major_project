@@ -16,4 +16,5 @@ __pycache__/
 
 # model_server — runtime / personal data
 model_server/database/
+model_server/cache/
 model_server/*.log

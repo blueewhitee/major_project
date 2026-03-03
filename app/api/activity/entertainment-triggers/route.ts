@@ -1,25 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import {
-  buildTriggerBreakdown,
-  type TriggerBreakdown,
-  type AWBucketEvent,
-} from "@/lib/activitywatch"
+import type { TriggerBreakdown } from "@/lib/activitywatch"
+import { readCache, isCacheFresh } from "@/lib/activity-cache"
+import { refreshInBackground } from "@/lib/activity-cache-refresh"
 
-const AW_BASE = process.env.ACTIVITYWATCH_URL ?? "http://localhost:5600/api/0"
-const HOST    = process.env.NEXT_PUBLIC_ACTIVITYWATCH_HOST ?? ""
-
-async function fetchEvents(
-  bucketId: string,
-  start: string,
-  end: string,
-): Promise<AWBucketEvent[]> {
-  const params = new URLSearchParams({ start, end, limit: "100000" })
-  const res = await fetch(
-    `${AW_BASE}/buckets/${encodeURIComponent(bucketId)}/events?${params}`,
-  )
-  if (!res.ok) return []
-  return res.json()
-}
+const HOST = process.env.NEXT_PUBLIC_ACTIVITYWATCH_HOST ?? ""
 
 const EMPTY: TriggerBreakdown = {
   byTrigger: {
@@ -38,16 +22,19 @@ const EMPTY: TriggerBreakdown = {
   totalSeconds: 0,
 }
 
+const CACHE_KEYS = {
+  today: "entertainment-today" as const,
+  week: "entertainment-week" as const,
+  month: "entertainment-month" as const,
+}
+
 /**
  * GET /api/activity/entertainment-triggers
  *
  * Query params:
  *   range = "today" (default) | "week" | "month"
  *
- * Returns TriggerBreakdown:
- *   byTrigger   – seconds per trigger type
- *   entries     – per-platform rows sorted by totalSeconds desc
- *   totalSeconds – grand total
+ * Returns TriggerBreakdown from cache. Triggers background refresh if stale.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -58,24 +45,18 @@ export async function GET(request: NextRequest) {
       | "week"
       | "month"
 
-    const now   = new Date()
-    let start: string
+    const cacheKey = CACHE_KEYS[range]
+    const entry = await readCache<TriggerBreakdown>(cacheKey)
 
-    if (range === "today") {
-      const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
-      start = sod.toISOString()
-    } else {
-      const days = range === "week" ? 7 : 30
-      start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString()
+    if (entry) {
+      if (!isCacheFresh(entry.updatedAt)) {
+        refreshInBackground()
+      }
+      return NextResponse.json(entry.data)
     }
 
-    const end = now.toISOString()
-    const webBucket = `aw-watcher-web-chrome_${HOST}`
-
-    const events = await fetchEvents(webBucket, start, end)
-    const breakdown = buildTriggerBreakdown(events)
-
-    return NextResponse.json(breakdown)
+    refreshInBackground()
+    return NextResponse.json(EMPTY)
   } catch (err) {
     console.error("entertainment-triggers error:", err)
     return NextResponse.json(EMPTY)
