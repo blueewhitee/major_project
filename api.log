@@ -42,3 +42,7 @@ INFO:     127.0.0.1:55646 - "POST /classify HTTP/1.1" 200 OK
 INFO:     127.0.0.1:51392 - "POST /classify HTTP/1.1" 200 OK
 INFO:     127.0.0.1:52920 - "POST /classify HTTP/1.1" 200 OK
 INFO:     127.0.0.1:62094 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62153 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62197 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62198 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62205 - "POST /classify-app HTTP/1.1" 200 OK
