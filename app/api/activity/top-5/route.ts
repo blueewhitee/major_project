@@ -9,28 +9,23 @@ const execFileAsync = promisify(execFile)
 
 type WindowKey = "today" | "12h" | "7d"
 
-function toLocalIsoNoZone(date: Date): string {
-  const pad = (n: number, w = 2) => String(n).padStart(w, "0")
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`
-}
-
 function getWindowRange(windowKey: WindowKey): { start: string; end: string } {
   const now = new Date()
   if (windowKey === "12h") {
     return {
-      start: toLocalIsoNoZone(new Date(now.getTime() - 12 * 60 * 60 * 1000)),
-      end: toLocalIsoNoZone(now),
+      start: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(),
+      end: now.toISOString(),
     }
   }
   if (windowKey === "7d") {
     return {
-      start: toLocalIsoNoZone(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)),
-      end: toLocalIsoNoZone(now),
+      start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      end: now.toISOString(),
     }
   }
   return {
-    start: toLocalIsoNoZone(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)),
-    end: toLocalIsoNoZone(now),
+    start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).toISOString(),
+    end: now.toISOString(),
   }
 }
 

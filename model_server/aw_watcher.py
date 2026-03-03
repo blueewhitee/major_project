@@ -139,6 +139,7 @@ def classify_browser_event(event: dict) -> dict | None:
             "description": description,
             "duration_seconds": duration,
             "event_timestamp": event_timestamp,
+            "event_id": event.get("id"),
         },
         timeout=30,
     )
@@ -161,6 +162,7 @@ def classify_app_event(event: dict) -> dict | None:
             "title": title,
             "duration_seconds": duration,
             "event_timestamp": event_timestamp,
+            "event_id": event.get("id"),
         },
         timeout=30,
     )
@@ -249,28 +251,33 @@ def _build_browser_description(url: str, title: str, data: dict) -> str:
 # ═══════════════════════════════════════════════════════════════════
 #  POLL  helpers
 # ═══════════════════════════════════════════════════════════════════
+_known_durations = {}
+
+
 def poll_browser(state: dict) -> tuple[int, int]:
     """Fetch and classify new browser events. Returns (classified, skipped)."""
     events   = fetch_events(BROWSER_BUCKET, state["last_timestamp"])
-    last_id  = state.get("last_id")
     classified = skipped = 0
 
-    for event in events:
+    for i, event in enumerate(events):
         event_id = event.get("id")
         duration = event.get("duration", 0)
         data     = event.get("data", {})
 
-        state["last_id"]        = event_id
         state["last_timestamp"] = event["timestamp"]
 
-        if last_id is not None and event_id <= last_id:
+        prev_dur = _known_durations.get(("browser", event_id), -1)
+        if duration <= prev_dur:
             continue
+
         if duration < MIN_DURATION:
             skipped += 1
             continue
         if data.get("incognito"):
             skipped += 1
             continue
+
+        _known_durations[("browser", event_id)] = duration
 
         result = classify_browser_event(event)
         if result:
@@ -287,7 +294,6 @@ def poll_browser(state: dict) -> tuple[int, int]:
 def poll_apps(state: dict, window_bucket: str) -> tuple[int, int]:
     """Fetch and classify new app-window events. Returns (classified, skipped)."""
     events  = fetch_events(window_bucket, state["last_timestamp_window"])
-    last_id = state.get("last_id_window")
     classified = skipped = 0
 
     for event in events:
@@ -296,17 +302,20 @@ def poll_apps(state: dict, window_bucket: str) -> tuple[int, int]:
         data     = event.get("data", {})
         app_name = data.get("app", "").strip()
 
-        state["last_id_window"]        = event_id
         state["last_timestamp_window"] = event["timestamp"]
 
-        if last_id is not None and event_id <= last_id:
+        prev_dur = _known_durations.get(("app", event_id), -1)
+        if duration <= prev_dur:
             continue
+
         if duration < MIN_DURATION:
             skipped += 1
             continue
         if app_name.lower() in SKIP_APPS:
             skipped += 1
             continue
+
+        _known_durations[("app", event_id)] = duration
 
         result = classify_app_event(event)
         if result:

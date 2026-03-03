@@ -1,0 +1,33 @@
+AW Watcher starting — browser bucket: aw-watcher-web-chrome_ASHU
+Waiting 60s for model server to be ready...
+
+Window bucket found: aw-watcher-window_ASHU
+Polling every 10s
+
+  [02:51:55] [WEB] PRODUCTIVE    65%  Productivity Dashboard - Overview
+  [02:51:55] [WEB] PRODUCTIVE    65%  Productivity Dashboard - Overview
+  [02:51:57] [WEB] DISTRACTIVE   80%  Subscriptions - YouTube
+  [02:51:58] [WEB] UNCERTAIN     58%  blueewhittee | VSCO
+  [02:51:58] [WEB] PRODUCTIVE    65%  Productivity Dashboard - Overview
+  [02:51:58] [WEB] DISTRACTIVE   80%  Subscriptions - YouTube
+  [02:51:59] [WEB] PRODUCTIVE    68%  Anna Dostoevskaya - Wikipedia
+  [02:51:59] [WEB] PRODUCTIVE    65%  Productivity Dashboard - Overview
+  [02:51:59] [WEB] PRODUCTIVE    65%  Productivity Dashboard - Overview
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    100%  WindowsTerminal.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:02] [APP] PRODUCTIVE    65%  Antigravity.exe
+  [02:52:03] [APP] PRODUCTIVE    63%  Antigravity.exe
+  [02:52:03] [APP] PRODUCTIVE    100%  WindowsTerminal.exe
+  [02:52:03] [APP] PRODUCTIVE    63%  Antigravity.exe
+  [02:52:03] [APP] PRODUCTIVE    63%  Antigravity.exe
+  -> 25 classified | 75 skipped
+

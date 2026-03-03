@@ -102,6 +102,8 @@ def _init_sqlite_if_needed() -> None:
             row[1]
             for row in conn.execute("PRAGMA table_info(events)").fetchall()
         }
+        if "event_id" not in columns:
+            conn.execute("ALTER TABLE events ADD COLUMN event_id INTEGER")
         if "duration_seconds" not in columns:
             conn.execute("ALTER TABLE events ADD COLUMN duration_seconds REAL")
         if "event_timestamp" not in columns:
@@ -125,8 +127,13 @@ def _log_to_sqlite(url: str, title: str, description: str, result: dict,
                    duration_seconds: float = 0.0,
                    event_timestamp: str = "",
                    cat_result: dict | None = None,
-                   trigger_result: dict | None = None) -> None:
-    ts = datetime.now().isoformat(timespec="milliseconds")
+                   trigger_result: dict | None = None,
+                   event_id: int | None = None) -> None:
+    from datetime import timezone
+    ts = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    if event_timestamp:
+        event_timestamp = event_timestamp.replace("+00:00", "Z")
+        
     category = cat_result["category"] if cat_result else None
     category_confidence = cat_result["confidence"] if cat_result else None
     entertainment_trigger = trigger_result["trigger"] if trigger_result else None
@@ -134,19 +141,28 @@ def _log_to_sqlite(url: str, title: str, description: str, result: dict,
     trigger_source = trigger_result["source"] if trigger_result else None
     trigger_latency_ms = trigger_result["latency_ms"] if trigger_result else None
     with sqlite3.connect(DB_FILE) as conn:
-        conn.execute(
+        cursor = conn.cursor()
+        if event_id is not None:
+            cursor.execute("SELECT id FROM events WHERE source=? AND event_id=?", (source, event_id))
+            row = cursor.fetchone()
+            if row:
+                cursor.execute("UPDATE events SET duration_seconds=? WHERE id=?", (duration_seconds, row[0]))
+                return
+        
+        cursor.execute(
             """
             INSERT INTO events (
-                timestamp, event_timestamp, duration_seconds, source, app, url, title, description,
+                timestamp, event_timestamp, event_id, duration_seconds, source, app, url, title, description,
                 classification, confidence, latency_ms,
                 score_productive, score_distractive,
                 category, category_confidence,
                 entertainment_trigger, trigger_confidence, trigger_source, trigger_latency_ms
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 ts,
                 event_timestamp,
+                event_id,
                 duration_seconds,
                 source,
                 app_name,
@@ -282,7 +298,8 @@ def _log_activity(url: str, title: str, description: str, result: dict,
                   duration_seconds: float = 0.0,
                   event_timestamp: str = "",
                   cat_result: dict | None = None,
-                  trigger_result: dict | None = None) -> None:
+                  trigger_result: dict | None = None,
+                  event_id: int | None = None) -> None:
     _log_to_sqlite(
         url,
         title,
@@ -294,6 +311,7 @@ def _log_activity(url: str, title: str, description: str, result: dict,
         event_timestamp=event_timestamp,
         cat_result=cat_result,
         trigger_result=trigger_result,
+        event_id=event_id,
     )
 
 
@@ -306,6 +324,7 @@ class ClassifyRequest(BaseModel):
     description: str = ""
     duration_seconds: float = 0.0
     event_timestamp: str = ""
+    event_id: int | None = None
 
 
 class ClassifyAppRequest(BaseModel):
@@ -313,6 +332,7 @@ class ClassifyAppRequest(BaseModel):
     title: str
     duration_seconds: float = 0.0
     event_timestamp: str = ""
+    event_id: int | None = None
 
 
 class ClassifyResponse(BaseModel):
@@ -373,6 +393,7 @@ def classify_endpoint(req: ClassifyRequest):
             event_timestamp=req.event_timestamp,
             cat_result=cat_result,
             trigger_result=trigger_result,
+            event_id=req.event_id,
         )
         return result
     except Exception as exc:
@@ -449,6 +470,7 @@ def classify_app_endpoint(req: ClassifyAppRequest):
             duration_seconds=req.duration_seconds,
             event_timestamp=req.event_timestamp,
             cat_result=cat_result,
+            event_id=req.event_id,
         )
         return result
     except Exception as exc:
