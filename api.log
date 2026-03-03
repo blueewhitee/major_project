@@ -1,0 +1,44 @@
+Loading model...
+Model loaded in 2.8s
+Ready!
+
+INFO:     127.0.0.1:55553 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63050 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63051 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63052 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63063 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63064 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63065 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63066 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63067 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50791 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50793 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50794 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50795 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50796 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50797 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50809 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50810 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50811 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50812 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50813 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50814 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50815 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50816 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50817 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50818 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49724 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49727 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58004 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58034 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57607 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61214 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61231 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49450 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49464 - "POST /classify-app HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57229 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59206 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55646 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51392 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52920 - "POST /classify HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62094 - "POST /classify HTTP/1.1" 200 OK
