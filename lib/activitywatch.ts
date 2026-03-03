@@ -321,26 +321,26 @@ export async function fetchMediaBreakdown(options?: {
 // ─── Video Consumption Tracker ────────────────────────────────────────────────
 
 const SHORT_FORM_PATTERNS: { pattern: string; label: string }[] = [
-  { pattern: "youtube.com/shorts/",    label: "YouTube Shorts"     },
-  { pattern: "instagram.com/reels/",   label: "Instagram Reels"    },
-  { pattern: "instagram.com/reel/",    label: "Instagram Reels"    },
-  { pattern: "tiktok.com",             label: "TikTok"             },
-  { pattern: "facebook.com/reels/",    label: "Facebook Reels"     },
-  { pattern: "twitter.com/i/status",   label: "X / Twitter Clips"  },
-  { pattern: "x.com/i/status",         label: "X / Twitter Clips"  },
+  { pattern: "youtube.com/shorts/", label: "YouTube Shorts" },
+  { pattern: "instagram.com/reels/", label: "Instagram Reels" },
+  { pattern: "instagram.com/reel/", label: "Instagram Reels" },
+  { pattern: "tiktok.com", label: "TikTok" },
+  { pattern: "facebook.com/reels/", label: "Facebook Reels" },
+  { pattern: "twitter.com/i/status", label: "X / Twitter Clips" },
+  { pattern: "x.com/i/status", label: "X / Twitter Clips" },
   { pattern: "snapchat.com/spotlight", label: "Snapchat Spotlight" },
-  { pattern: "pinterest.com/pin/",     label: "Pinterest Video"    },
+  { pattern: "pinterest.com/pin/", label: "Pinterest Video" },
 ]
 
 const LONG_FORM_PATTERNS: { pattern: string; label: string }[] = [
-  { pattern: "youtube.com/watch",  label: "YouTube Videos" },
-  { pattern: "youtube.com/feed",   label: "YouTube Feed"   },
-  { pattern: "netflix.com/watch",  label: "Netflix"        },
-  { pattern: "primevideo.com",     label: "Prime Video"    },
-  { pattern: "hotstar.com",        label: "Hotstar"        },
-  { pattern: "twitch.tv",          label: "Twitch"         },
-  { pattern: "vimeo.com",          label: "Vimeo"          },
-  { pattern: "disneyplus.com",     label: "Disney+"        },
+  { pattern: "youtube.com/watch", label: "YouTube Videos" },
+  { pattern: "youtube.com/feed", label: "YouTube Feed" },
+  { pattern: "netflix.com/watch", label: "Netflix" },
+  { pattern: "primevideo.com", label: "Prime Video" },
+  { pattern: "hotstar.com", label: "Hotstar" },
+  { pattern: "twitch.tv", label: "Twitch" },
+  { pattern: "vimeo.com", label: "Vimeo" },
+  { pattern: "disneyplus.com", label: "Disney+" },
 ]
 
 export interface ContentEntry {
@@ -416,14 +416,14 @@ export async function fetchVideoBreakdown(options?: {
   const entries = classifyWebEvents(events)
 
   const shortFormSeconds = entries.filter((e) => e.type === "short").reduce((s, e) => s + e.totalSeconds, 0)
-  const longFormSeconds  = entries.filter((e) => e.type === "long").reduce((s, e) => s + e.totalSeconds, 0)
+  const longFormSeconds = entries.filter((e) => e.type === "long").reduce((s, e) => s + e.totalSeconds, 0)
   const totalSeconds = shortFormSeconds + longFormSeconds
 
   return {
     shortFormSeconds,
     longFormSeconds,
     shortFormPercent: totalSeconds > 0 ? Math.round((shortFormSeconds / totalSeconds) * 100) : 0,
-    longFormPercent:  totalSeconds > 0 ? Math.round((longFormSeconds  / totalSeconds) * 100) : 0,
+    longFormPercent: totalSeconds > 0 ? Math.round((longFormSeconds / totalSeconds) * 100) : 0,
     entries,
   }
 }
@@ -496,7 +496,6 @@ export type EntertainmentTrigger =
   | "doom-scroll"
   | "binge-watch"
   | "rabbit-hole"
-  | "live-stream"
   | "news-loop"
   | "sports-stream"
   | "gaming-content"
@@ -520,122 +519,116 @@ export interface TriggerPattern {
  */
 export const TRIGGER_PATTERNS: TriggerPattern[] = [
   // ── Short-form ────────────────────────────────────────────────────────────
-  { urlPattern: "youtube.com/shorts/",    trigger: "short-form",     label: "YouTube Shorts"      },
-  { urlPattern: "tiktok.com",             trigger: "short-form",     label: "TikTok"              },
-  { urlPattern: "instagram.com/reel",     trigger: "short-form",     label: "Instagram Reels"     },
-  { urlPattern: "facebook.com/reels",     trigger: "short-form",     label: "Facebook Reels"      },
-  { urlPattern: "snapchat.com/spotlight", trigger: "short-form",     label: "Snapchat Spotlight"  },
-  { urlPattern: "pinterest.com/pin/",     trigger: "short-form",     label: "Pinterest Video"     },
+  { urlPattern: "youtube.com/shorts/", trigger: "short-form", label: "YouTube Shorts" },
+  { urlPattern: "tiktok.com", trigger: "short-form", label: "TikTok" },
+  { urlPattern: "instagram.com/reel", trigger: "short-form", label: "Instagram Reels" },
+  { urlPattern: "facebook.com/reels", trigger: "short-form", label: "Facebook Reels" },
+  { urlPattern: "snapchat.com/spotlight", trigger: "short-form", label: "Snapchat Spotlight" },
+  { urlPattern: "pinterest.com/pin/", trigger: "short-form", label: "Pinterest Video" },
 
   // ── Podcast / Audio ───────────────────────────────────────────────────────
-  { urlPattern: "open.spotify.com/episode",  trigger: "podcast-audio", label: "Spotify Podcast"   },
-  { urlPattern: "podcasts.google.com",       trigger: "podcast-audio", label: "Google Podcasts"   },
-  { urlPattern: "pocketcasts.com",           trigger: "podcast-audio", label: "Pocket Casts"      },
-  { urlPattern: "anchor.fm",                 trigger: "podcast-audio", label: "Anchor Podcast"    },
-  { urlPattern: "overcast.fm",               trigger: "podcast-audio", label: "Overcast"          },
+  { urlPattern: "open.spotify.com/episode", trigger: "podcast-audio", label: "Spotify Podcast" },
+  { urlPattern: "podcasts.google.com", trigger: "podcast-audio", label: "Google Podcasts" },
+  { urlPattern: "pocketcasts.com", trigger: "podcast-audio", label: "Pocket Casts" },
+  { urlPattern: "anchor.fm", trigger: "podcast-audio", label: "Anchor Podcast" },
+  { urlPattern: "overcast.fm", trigger: "podcast-audio", label: "Overcast" },
 
   // ── News-loop ─────────────────────────────────────────────────────────────
-  { urlPattern: "bbc.com",              trigger: "news-loop", label: "BBC News"       },
-  { urlPattern: "bbc.co.uk",            trigger: "news-loop", label: "BBC News"       },
-  { urlPattern: "cnn.com",              trigger: "news-loop", label: "CNN"            },
-  { urlPattern: "ndtv.com",             trigger: "news-loop", label: "NDTV"           },
-  { urlPattern: "reuters.com",          trigger: "news-loop", label: "Reuters"        },
-  { urlPattern: "bloomberg.com",        trigger: "news-loop", label: "Bloomberg"      },
-  { urlPattern: "nytimes.com",          trigger: "news-loop", label: "NY Times"       },
-  { urlPattern: "theguardian.com",      trigger: "news-loop", label: "The Guardian"   },
-  { urlPattern: "washingtonpost.com",   trigger: "news-loop", label: "WashPost"       },
-  { urlPattern: "hindustantimes.com",   trigger: "news-loop", label: "HT"             },
-  { urlPattern: "timesofindia.com",     trigger: "news-loop", label: "TOI"            },
-  { urlPattern: "thehindu.com",         trigger: "news-loop", label: "The Hindu"      },
-  { urlPattern: "techcrunch.com",       trigger: "news-loop", label: "TechCrunch"     },
-  { urlPattern: "theverge.com",         trigger: "news-loop", label: "The Verge"      },
-  { urlPattern: "arstechnica.com",      trigger: "news-loop", label: "Ars Technica"   },
-  { urlPattern: "reddit.com/r/worldnews",   trigger: "news-loop", label: "r/worldnews"   },
-  { urlPattern: "reddit.com/r/news",        trigger: "news-loop", label: "r/news"         },
-  { urlPattern: "reddit.com/r/technology",  trigger: "news-loop", label: "r/technology"   },
-  { urlPattern: "reddit.com/r/india",       trigger: "news-loop", label: "r/india"         },
+  { urlPattern: "bbc.com", trigger: "news-loop", label: "BBC News" },
+  { urlPattern: "bbc.co.uk", trigger: "news-loop", label: "BBC News" },
+  { urlPattern: "cnn.com", trigger: "news-loop", label: "CNN" },
+  { urlPattern: "ndtv.com", trigger: "news-loop", label: "NDTV" },
+  { urlPattern: "reuters.com", trigger: "news-loop", label: "Reuters" },
+  { urlPattern: "bloomberg.com", trigger: "news-loop", label: "Bloomberg" },
+  { urlPattern: "nytimes.com", trigger: "news-loop", label: "NY Times" },
+  { urlPattern: "theguardian.com", trigger: "news-loop", label: "The Guardian" },
+  { urlPattern: "washingtonpost.com", trigger: "news-loop", label: "WashPost" },
+  { urlPattern: "hindustantimes.com", trigger: "news-loop", label: "HT" },
+  { urlPattern: "timesofindia.com", trigger: "news-loop", label: "TOI" },
+  { urlPattern: "thehindu.com", trigger: "news-loop", label: "The Hindu" },
+  { urlPattern: "techcrunch.com", trigger: "news-loop", label: "TechCrunch" },
+  { urlPattern: "theverge.com", trigger: "news-loop", label: "The Verge" },
+  { urlPattern: "arstechnica.com", trigger: "news-loop", label: "Ars Technica" },
+  { urlPattern: "reddit.com/r/worldnews", trigger: "news-loop", label: "r/worldnews" },
+  { urlPattern: "reddit.com/r/news", trigger: "news-loop", label: "r/news" },
+  { urlPattern: "reddit.com/r/technology", trigger: "news-loop", label: "r/technology" },
+  { urlPattern: "reddit.com/r/india", trigger: "news-loop", label: "r/india" },
   // Title-based news detection for sites not in the list
-  { titlePattern: "breaking news",      trigger: "news-loop", label: "Breaking News"  },
-  { titlePattern: "live updates",       trigger: "news-loop", label: "Live News"      },
+  { titlePattern: "breaking news", trigger: "news-loop", label: "Breaking News" },
+  { titlePattern: "live updates", trigger: "news-loop", label: "Live News" },
 
   // ── Sports-stream ─────────────────────────────────────────────────────────
-  { urlPattern: "espn.com",            trigger: "sports-stream", label: "ESPN"         },
-  { urlPattern: "cricbuzz.com",        trigger: "sports-stream", label: "Cricbuzz"     },
-  { urlPattern: "livescore.com",       trigger: "sports-stream", label: "LiveScore"    },
-  { urlPattern: "onefootball.com",     trigger: "sports-stream", label: "OneFootball"  },
-  { urlPattern: "sports.ndtv.com",     trigger: "sports-stream", label: "NDTV Sports"  },
-  { urlPattern: "hotstar.com/sports",  trigger: "sports-stream", label: "Hotstar Sports" },
-  { urlPattern: "reddit.com/r/cricket",   trigger: "sports-stream", label: "r/cricket"  },
-  { urlPattern: "reddit.com/r/soccer",    trigger: "sports-stream", label: "r/soccer"   },
-  { urlPattern: "reddit.com/r/nba",       trigger: "sports-stream", label: "r/nba"      },
-  { urlPattern: "reddit.com/r/formula1",  trigger: "sports-stream", label: "r/formula1" },
+  { urlPattern: "espn.com", trigger: "sports-stream", label: "ESPN" },
+  { urlPattern: "cricbuzz.com", trigger: "sports-stream", label: "Cricbuzz" },
+  { urlPattern: "livescore.com", trigger: "sports-stream", label: "LiveScore" },
+  { urlPattern: "onefootball.com", trigger: "sports-stream", label: "OneFootball" },
+  { urlPattern: "sports.ndtv.com", trigger: "sports-stream", label: "NDTV Sports" },
+  { urlPattern: "hotstar.com/sports", trigger: "sports-stream", label: "Hotstar Sports" },
+  { urlPattern: "reddit.com/r/cricket", trigger: "sports-stream", label: "r/cricket" },
+  { urlPattern: "reddit.com/r/soccer", trigger: "sports-stream", label: "r/soccer" },
+  { urlPattern: "reddit.com/r/nba", trigger: "sports-stream", label: "r/nba" },
+  { urlPattern: "reddit.com/r/formula1", trigger: "sports-stream", label: "r/formula1" },
   // Title-based
-  { titlePattern: " vs ",              trigger: "sports-stream", label: "Sports Match"  },
-  { titlePattern: "highlights",        trigger: "sports-stream", label: "Sports Highlights" },
-  { titlePattern: "live score",        trigger: "sports-stream", label: "Live Score"    },
+  { titlePattern: " vs ", trigger: "sports-stream", label: "Sports Match" },
+  { titlePattern: "highlights", trigger: "sports-stream", label: "Sports Highlights" },
+  { titlePattern: "live score", trigger: "sports-stream", label: "Live Score" },
 
   // ── Meme-browse ───────────────────────────────────────────────────────────
-  { urlPattern: "9gag.com",                 trigger: "meme-browse", label: "9GAG"          },
-  { urlPattern: "ifunny.co",                trigger: "meme-browse", label: "iFunny"         },
-  { urlPattern: "memedroid.com",            trigger: "meme-browse", label: "Memedroid"      },
-  { urlPattern: "reddit.com/r/memes",       trigger: "meme-browse", label: "r/memes"        },
-  { urlPattern: "reddit.com/r/funny",       trigger: "meme-browse", label: "r/funny"        },
-  { urlPattern: "reddit.com/r/dankmemes",   trigger: "meme-browse", label: "r/dankmemes"    },
-  { urlPattern: "reddit.com/r/me_irl",      trigger: "meme-browse", label: "r/me_irl"       },
-  { urlPattern: "reddit.com/r/shitposting", trigger: "meme-browse", label: "r/shitposting"  },
-  { urlPattern: "reddit.com/r/okbuddyretard", trigger: "meme-browse", label: "r/okbuddy"    },
-
-  // ── Live-stream ───────────────────────────────────────────────────────────
-  { urlPattern: "twitch.tv",           trigger: "live-stream", label: "Twitch"        },
-  { urlPattern: "youtube.com/live",    trigger: "live-stream", label: "YouTube Live"  },
-  { urlPattern: "kick.com",            trigger: "live-stream", label: "Kick"          },
-  { urlPattern: "youtube.com/watch",   titlePattern: " live",  trigger: "live-stream", label: "YouTube Live" },
+  { urlPattern: "9gag.com", trigger: "meme-browse", label: "9GAG" },
+  { urlPattern: "ifunny.co", trigger: "meme-browse", label: "iFunny" },
+  { urlPattern: "memedroid.com", trigger: "meme-browse", label: "Memedroid" },
+  { urlPattern: "reddit.com/r/memes", trigger: "meme-browse", label: "r/memes" },
+  { urlPattern: "reddit.com/r/funny", trigger: "meme-browse", label: "r/funny" },
+  { urlPattern: "reddit.com/r/dankmemes", trigger: "meme-browse", label: "r/dankmemes" },
+  { urlPattern: "reddit.com/r/me_irl", trigger: "meme-browse", label: "r/me_irl" },
+  { urlPattern: "reddit.com/r/shitposting", trigger: "meme-browse", label: "r/shitposting" },
+  { urlPattern: "reddit.com/r/okbuddyretard", trigger: "meme-browse", label: "r/okbuddy" },
 
   // ── Gaming-content (video) ────────────────────────────────────────────────
-  { urlPattern: "reddit.com/r/gaming",      trigger: "gaming-content", label: "r/gaming"      },
-  { urlPattern: "reddit.com/r/pcgaming",    trigger: "gaming-content", label: "r/pcgaming"    },
-  { urlPattern: "reddit.com/r/gamedeals",   trigger: "gaming-content", label: "r/gamedeals"   },
-  { urlPattern: "store.steampowered.com",   trigger: "gaming-content", label: "Steam Store"   },
+  { urlPattern: "reddit.com/r/gaming", trigger: "gaming-content", label: "r/gaming" },
+  { urlPattern: "reddit.com/r/pcgaming", trigger: "gaming-content", label: "r/pcgaming" },
+  { urlPattern: "reddit.com/r/gamedeals", trigger: "gaming-content", label: "r/gamedeals" },
+  { urlPattern: "store.steampowered.com", trigger: "gaming-content", label: "Steam Store" },
   // YouTube gaming via title
-  { urlPattern: "youtube.com/watch",        titlePattern: "gameplay",    trigger: "gaming-content", label: "Gameplay Video"   },
-  { urlPattern: "youtube.com/watch",        titlePattern: "let's play",  trigger: "gaming-content", label: "Let's Play"       },
-  { urlPattern: "youtube.com/watch",        titlePattern: "letsplay",    trigger: "gaming-content", label: "Let's Play"       },
-  { urlPattern: "youtube.com/watch",        titlePattern: "walkthrough", trigger: "gaming-content", label: "Walkthrough"      },
-  { urlPattern: "youtube.com/watch",        titlePattern: "speedrun",    trigger: "gaming-content", label: "Speedrun"         },
-  { urlPattern: "youtube.com/watch",        titlePattern: "playthrough", trigger: "gaming-content", label: "Playthrough"      },
+  { urlPattern: "youtube.com/watch", titlePattern: "gameplay", trigger: "gaming-content", label: "Gameplay Video" },
+  { urlPattern: "youtube.com/watch", titlePattern: "let's play", trigger: "gaming-content", label: "Let's Play" },
+  { urlPattern: "youtube.com/watch", titlePattern: "letsplay", trigger: "gaming-content", label: "Let's Play" },
+  { urlPattern: "youtube.com/watch", titlePattern: "walkthrough", trigger: "gaming-content", label: "Walkthrough" },
+  { urlPattern: "youtube.com/watch", titlePattern: "speedrun", trigger: "gaming-content", label: "Speedrun" },
+  { urlPattern: "youtube.com/watch", titlePattern: "playthrough", trigger: "gaming-content", label: "Playthrough" },
 
   // ── Binge-watch ───────────────────────────────────────────────────────────
-  { urlPattern: "netflix.com",        trigger: "binge-watch", label: "Netflix"       },
-  { urlPattern: "primevideo.com",     trigger: "binge-watch", label: "Prime Video"   },
-  { urlPattern: "hotstar.com",        trigger: "binge-watch", label: "Hotstar"       },
-  { urlPattern: "disneyplus.com",     trigger: "binge-watch", label: "Disney+"       },
-  { urlPattern: "hulu.com",           trigger: "binge-watch", label: "Hulu"          },
-  { urlPattern: "sonyliv.com",        trigger: "binge-watch", label: "SonyLIV"       },
-  { urlPattern: "jiocinema.com",      trigger: "binge-watch", label: "JioCinema"     },
-  { urlPattern: "zee5.com",           trigger: "binge-watch", label: "ZEE5"          },
-  { urlPattern: "voot.com",           trigger: "binge-watch", label: "Voot"          },
-  { urlPattern: "mxplayer.in",        trigger: "binge-watch", label: "MX Player"     },
+  { urlPattern: "netflix.com", trigger: "binge-watch", label: "Netflix" },
+  { urlPattern: "primevideo.com", trigger: "binge-watch", label: "Prime Video" },
+  { urlPattern: "hotstar.com", trigger: "binge-watch", label: "Hotstar" },
+  { urlPattern: "disneyplus.com", trigger: "binge-watch", label: "Disney+" },
+  { urlPattern: "hulu.com", trigger: "binge-watch", label: "Hulu" },
+  { urlPattern: "sonyliv.com", trigger: "binge-watch", label: "SonyLIV" },
+  { urlPattern: "jiocinema.com", trigger: "binge-watch", label: "JioCinema" },
+  { urlPattern: "zee5.com", trigger: "binge-watch", label: "ZEE5" },
+  { urlPattern: "voot.com", trigger: "binge-watch", label: "Voot" },
+  { urlPattern: "mxplayer.in", trigger: "binge-watch", label: "MX Player" },
   // Title-based episode detection (works for YouTube series too)
-  { titlePattern: "season",           trigger: "binge-watch", label: "TV Series"     },
-  { titlePattern: "episode",          trigger: "binge-watch", label: "TV Episode"    },
-  { titlePattern: " s0",              trigger: "binge-watch", label: "TV Series"     },
-  { titlePattern: " e0",              trigger: "binge-watch", label: "TV Episode"    },
+  { titlePattern: "season", trigger: "binge-watch", label: "TV Series" },
+  { titlePattern: "episode", trigger: "binge-watch", label: "TV Episode" },
+  { titlePattern: " s0", trigger: "binge-watch", label: "TV Series" },
+  { titlePattern: " e0", trigger: "binge-watch", label: "TV Episode" },
 
   // ── Rabbit-hole (YouTube catch-all, after all specific YouTube patterns) ──
-  { urlPattern: "youtube.com/watch",  trigger: "rabbit-hole", label: "YouTube"       },
-  { urlPattern: "youtube.com/feed",   trigger: "rabbit-hole", label: "YouTube Feed"  },
-  { urlPattern: "vimeo.com",          trigger: "rabbit-hole", label: "Vimeo"         },
+  { urlPattern: "youtube.com/watch", trigger: "rabbit-hole", label: "YouTube" },
+  { urlPattern: "youtube.com/feed", trigger: "rabbit-hole", label: "YouTube Feed" },
+  { urlPattern: "vimeo.com", trigger: "rabbit-hole", label: "Vimeo" },
 
   // ── Doom-scroll (social feeds — broadest, must be last) ───────────────────
-  { urlPattern: "twitter.com",        trigger: "doom-scroll", label: "X / Twitter"   },
-  { urlPattern: "x.com",              trigger: "doom-scroll", label: "X / Twitter"   },
-  { urlPattern: "reddit.com",         trigger: "doom-scroll", label: "Reddit"        },
-  { urlPattern: "instagram.com",      trigger: "doom-scroll", label: "Instagram"     },
-  { urlPattern: "facebook.com",       trigger: "doom-scroll", label: "Facebook"      },
-  { urlPattern: "threads.net",        trigger: "doom-scroll", label: "Threads"       },
-  { urlPattern: "tumblr.com",         trigger: "doom-scroll", label: "Tumblr"        },
-  { urlPattern: "linkedin.com/feed",  trigger: "doom-scroll", label: "LinkedIn Feed" },
-  { urlPattern: "snapchat.com",       trigger: "doom-scroll", label: "Snapchat"      },
+  { urlPattern: "twitter.com", trigger: "doom-scroll", label: "X / Twitter" },
+  { urlPattern: "x.com", trigger: "doom-scroll", label: "X / Twitter" },
+  { urlPattern: "reddit.com", trigger: "doom-scroll", label: "Reddit" },
+  { urlPattern: "instagram.com", trigger: "doom-scroll", label: "Instagram" },
+  { urlPattern: "facebook.com", trigger: "doom-scroll", label: "Facebook" },
+  { urlPattern: "threads.net", trigger: "doom-scroll", label: "Threads" },
+  { urlPattern: "tumblr.com", trigger: "doom-scroll", label: "Tumblr" },
+  { urlPattern: "linkedin.com/feed", trigger: "doom-scroll", label: "LinkedIn Feed" },
+  { urlPattern: "snapchat.com", trigger: "doom-scroll", label: "Snapchat" },
 ]
 
 export interface TriggerEntry {
@@ -667,7 +660,7 @@ export function classifyEntertainmentEvent(
   title: string,
 ): { trigger: EntertainmentTrigger; label: string } | null {
   const lowerTitle = title.toLowerCase()
-  const lowerUrl   = url.toLowerCase()
+  const lowerUrl = url.toLowerCase()
 
   for (const p of TRIGGER_PATTERNS) {
     const urlOk =
@@ -695,16 +688,15 @@ export function classifyEntertainmentEvent(
  */
 export function buildTriggerBreakdown(events: AWBucketEvent[]): TriggerBreakdown {
   const byTrigger: Record<EntertainmentTrigger, number> = {
-    "short-form":     0,
-    "doom-scroll":    0,
-    "binge-watch":    0,
-    "rabbit-hole":    0,
-    "live-stream":    0,
-    "news-loop":      0,
-    "sports-stream":  0,
+    "short-form": 0,
+    "doom-scroll": 0,
+    "binge-watch": 0,
+    "rabbit-hole": 0,
+    "news-loop": 0,
+    "sports-stream": 0,
     "gaming-content": 0,
-    "meme-browse":    0,
-    "podcast-audio":  0,
+    "meme-browse": 0,
+    "podcast-audio": 0,
   }
 
   // label → { trigger, totalSeconds, visitCount }
@@ -712,7 +704,7 @@ export function buildTriggerBreakdown(events: AWBucketEvent[]): TriggerBreakdown
 
   for (const ev of events) {
     if (ev.duration <= 0) continue
-    const url   = (ev.data?.url   as string) ?? ""
+    const url = (ev.data?.url as string) ?? ""
     const title = (ev.data?.title as string) ?? ""
     if (!url) continue
 
@@ -724,7 +716,7 @@ export function buildTriggerBreakdown(events: AWBucketEvent[]): TriggerBreakdown
     const existing = labelMap.get(match.label)
     if (existing) {
       existing.totalSeconds += ev.duration
-      existing.visitCount   += 1
+      existing.visitCount += 1
     } else {
       labelMap.set(match.label, {
         trigger: match.trigger,

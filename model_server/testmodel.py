@@ -44,7 +44,6 @@ ENTERTAINMENT_TRIGGER_LABELS = [
     "doom-scrolling social media feeds",
     "binge-watching episodes or movies",
     "falling into a recommendation rabbit hole",
-    "watching live-stream content",
     "compulsively checking news updates",
     "watching sports streams, highlights, or live scores",
     "watching gaming content, gameplay, or speedruns",
@@ -56,7 +55,6 @@ TRIGGER_LABEL_MAP = {
     "doom-scrolling social media feeds": "doom-scroll",
     "binge-watching episodes or movies": "binge-watch",
     "falling into a recommendation rabbit hole": "rabbit-hole",
-    "watching live-stream content": "live-stream",
     "compulsively checking news updates": "news-loop",
     "watching sports streams, highlights, or live scores": "sports-stream",
     "watching gaming content, gameplay, or speedruns": "gaming-content",
@@ -87,7 +85,6 @@ _FAST_TRIGGER_RULES = [
     {"host_contains": "disneyplus.com", "trigger": "binge-watch", "label": "Disney+"},
     # live-stream
     {"host_contains": "twitch.tv", "trigger": "live-stream", "label": "Twitch"},
-    {"host_contains": "youtube.com", "path_contains": "/live", "trigger": "live-stream", "label": "YouTube Live"},
     # doom-scroll broad social
     {"host_contains": "instagram.com", "trigger": "doom-scroll", "label": "Instagram Feed"},
 ]
@@ -194,8 +191,8 @@ def _extract_trigger_signals(host: str, path: str, query: str, title: str) -> st
         signals.append("single-video watch page")
     if any(k in title.lower() for k in ("season", "episode", "s01", "e01")):
         signals.append("episode-like title structure")
-    if any(k in title.lower() for k in ("live", "stream", "highlights")):
-        signals.append("live or stream language in title")
+    if any(k in title.lower() for k in ("highlights",)):
+        signals.append("highlights language in title")
     if any(k in host for k in ("bbc.", "cnn.", "reuters.", "ndtv.", "nytimes.", "thehindu.")):
         signals.append("news-domain context")
     if any(k in host for k in ("cricbuzz", "espn", "livescore")):
