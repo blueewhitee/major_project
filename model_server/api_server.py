@@ -9,6 +9,7 @@ import time
 from collections import OrderedDict
 from typing import Any
 from datetime import datetime
+from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(__file__))
 from testmodel import classify, classify_category, classify_entertainment_trigger  # model loads at import time
@@ -20,6 +21,59 @@ model_lock = threading.Lock()
 app = FastAPI(title="Focus Tracker Classifier", version="1.0.0")
 
 DB_FILE = os.path.join(os.path.dirname(__file__), "database", "focus_tracker.db")
+
+# ═══════════════════════════════════════════════════════════════════
+#  YouTube-specific classification thresholds
+# ═══════════════════════════════════════════════════════════════════
+# Wider band than the global 0.60 threshold — nothing from youtube.com
+# can land as UNCERTAIN. If PRODUCTIVE score >= 0.55 → PRODUCTIVE,
+# if DISTRACTIVE score >= 0.45 → DISTRACTIVE, tie-breaks to DISTRACTIVE.
+YT_PRODUCTIVE_THRESHOLD  = 0.55
+YT_DISTRACTIVE_THRESHOLD = 0.45
+
+
+def _is_youtube_url(url: str) -> bool:
+    """Return True for any youtube.com or youtu.be URL."""
+    host = (url or "").lower()
+    return "youtube.com" in host or "youtu.be" in host
+
+
+def _is_youtube_shorts(url: str) -> bool:
+    """Return True specifically for YouTube Shorts pages."""
+    try:
+        from urllib.parse import urlparse as _up
+        p = _up(url)
+        return ("youtube.com" in (p.hostname or "")) and "/shorts/" in (p.path or "")
+    except Exception:
+        return "/shorts/" in (url or "").lower()
+
+
+def _apply_youtube_threshold(raw_scores: dict, latency_ms: float, premise: str, url: str) -> dict:
+    """Re-decide classification using the YouTube-specific wider threshold.
+
+    Shorts are always DISTRACTIVE (fast-path, no model call).
+    For other YouTube URLs: PRODUCTIVE ≥ 0.55, else DISTRACTIVE.
+    This eliminates UNCERTAIN for all youtube.com events.
+    """
+    p_score = raw_scores.get("PRODUCTIVE", 0.0)
+    d_score = raw_scores.get("DISTRACTIVE", 0.0)
+
+    if p_score >= YT_PRODUCTIVE_THRESHOLD:
+        classification = "PRODUCTIVE"
+        confidence = p_score
+    else:
+        # d_score >= 0.45  OR  p_score < 0.55 → bucket as DISTRACTIVE
+        classification = "DISTRACTIVE"
+        confidence = d_score
+
+    return {
+        "premise":        premise,
+        "classification": classification,
+        "confidence":     round(confidence, 3),
+        "latency_ms":     latency_ms,
+        "raw_scores":     raw_scores,
+    }
+
 
 # ═══════════════════════════════════════════════════════════════════
 #  In-memory LRU + TTL cache for repeated classifications
@@ -90,6 +144,14 @@ def _init_sqlite_if_needed() -> None:
                 latency_ms REAL,
                 score_productive REAL,
                 score_distractive REAL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_overrides (
+                key TEXT PRIMARY KEY,
+                classification TEXT NOT NULL
             )
             """
         )
@@ -219,6 +281,17 @@ PRODUCTIVE_APPS = {
     "slack", "slack.exe",
 }
 
+# ── Known productive domains (match against lowercased url) ────────
+PRODUCTIVE_DOMAINS = {
+    "overleaf.com",
+    "github.com",
+    "stackoverflow.com",
+    "docs.python.org",
+    "developer.mozilla.org",
+    "chatgpt.com",
+    "claude.ai",
+}
+
 # ── Known distractive apps ─────────────────────────────────────────
 DISTRACTIVE_APPS = {
     "spotify", "spotify.exe",
@@ -293,6 +366,48 @@ APP_CATEGORY_MAP: dict[str, str] = {
 _init_sqlite_if_needed()
 
 
+def _normalize_browser_name(url: str, title: str) -> str:
+    if url:
+        try:
+            host = urlparse(url).hostname or ""
+            host = host.lower().strip()
+            if host.startswith("www."):
+                host = host[4:]
+            if host:
+                return host
+        except Exception:
+            pass
+    if title:
+        return title.strip().lower()[:80]
+    return "unknown"
+
+
+def _normalize_app_name(app_name: str, title: str) -> str:
+    name = (app_name or "").strip().lower()
+    if name.startswith("app://"):
+        name = name[6:]
+    if name.endswith(".exe"):
+        name = name[:-4]
+    if name:
+        return name
+    if title:
+        return title.strip().lower()[:80]
+    return "unknown"
+
+
+def _get_user_override(key: str) -> str | None:
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT classification FROM user_overrides WHERE key=?", (key,))
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+    except Exception as e:
+        print(f"Error fetching override: {e}")
+    return None
+
+
 def _log_activity(url: str, title: str, description: str, result: dict,
                   source: str = "browser", app_name: str = "",
                   duration_seconds: float = 0.0,
@@ -362,14 +477,67 @@ def classify_endpoint(req: ClassifyRequest):
         cat_result = _cache_get(cat_key)
         trigger_result = None
 
+        url_lower = req.url.lower().strip()
+        is_productive_url = any(domain in url_lower for domain in PRODUCTIVE_DOMAINS)
+        is_yt_shorts = _is_youtube_shorts(req.url)
+        is_yt        = _is_youtube_url(req.url)
+
         if result is None:
-            with model_lock:
-                result = classify(url=req.url, title=req.title, description=req.description)
+            # Check user override first
+            key = _normalize_browser_name(req.url, req.title)
+            override = _get_user_override(key)
+
+            if override:
+                result = {
+                    "premise":        f"The user is on a known {override} domain (Manual Override): {req.url}",
+                    "classification": override,
+                    "confidence":     1.0,
+                    "latency_ms":     0.0,
+                    "raw_scores": {
+                        "PRODUCTIVE": 1.0 if override == "PRODUCTIVE" else 0.0,
+                        "DISTRACTIVE": 1.0 if override == "DISTRACTIVE" else 0.0,
+                    },
+                }
+            elif is_yt_shorts:
+                # YouTube Shorts → always DISTRACTIVE, no model call needed.
+                result = {
+                    "premise":        f"YouTube Shorts URL detected (fast-path): {req.url}",
+                    "classification": "DISTRACTIVE",
+                    "confidence":     1.0,
+                    "latency_ms":     0.0,
+                    "raw_scores":     {"PRODUCTIVE": 0.0, "DISTRACTIVE": 1.0},
+                }
+            elif is_productive_url:
+                result = {
+                    "premise":        f"The user is on a known productive domain: {req.url}",
+                    "classification": "PRODUCTIVE",
+                    "confidence":     1.0,
+                    "latency_ms":     0.0,
+                    "raw_scores":     {"PRODUCTIVE": 1.0, "DISTRACTIVE": 0.0},
+                }
+            elif is_yt:
+                # All other YouTube URLs: run the model but apply wider thresholds
+                # (0.55 productive / 0.45 distractive) to eliminate UNCERTAIN.
+                with model_lock:
+                    raw = classify(url=req.url, title=req.title, description=req.description)
+                result = _apply_youtube_threshold(
+                    raw["raw_scores"], raw["latency_ms"], raw["premise"], req.url
+                )
+            else:
+                with model_lock:
+                    result = classify(url=req.url, title=req.title, description=req.description)
             _cache_set(cls_key, result)
 
         if cat_result is None:
-            with model_lock:
-                cat_result = classify_category(url=req.url, title=req.title, description=req.description)
+            if is_productive_url:
+                cat_result = {
+                    "category":   "productivity",
+                    "confidence": 1.0,
+                    "latency_ms": 0.0,
+                }
+            else:
+                with model_lock:
+                    cat_result = classify_category(url=req.url, title=req.title, description=req.description)
             _cache_set(cat_key, cat_result)
 
         if (cat_result.get("category") or "").lower() == "entertainment":
@@ -408,7 +576,21 @@ def classify_app_endpoint(req: ClassifyAppRequest):
             f"The user has '{req.app}' open with window title: '{req.title}'."
         )
 
-        if app_lower in PRODUCTIVE_APPS:
+        key = _normalize_app_name(req.app, req.title)
+        override = _get_user_override(key)
+
+        if override:
+            result = {
+                "premise":        f"User override applied: {override} for {req.app}",
+                "classification": override,
+                "confidence":     1.0,
+                "latency_ms":     0.0,
+                "raw_scores": {
+                    "PRODUCTIVE": 1.0 if override == "PRODUCTIVE" else 0.0,
+                    "DISTRACTIVE": 1.0 if override == "DISTRACTIVE" else 0.0,
+                },
+            }
+        elif app_lower in PRODUCTIVE_APPS:
             result = {
                 "premise":        premise,
                 "classification": "PRODUCTIVE",

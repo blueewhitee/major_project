@@ -1,0 +1,45 @@
+======================================================================
+  RANGES
+======================================================================
+  Now (IST)           : 2026-03-05T17:09:58 IST
+  IST midnight in UTC : 2026-03-04T18:30:00.000Z  (correct for IST users)
+  UTC midnight        : 2026-03-05T00:00:00.000Z  (wrong, misses 0-5:30 AM IST)
+  End (now UTC)       : 2026-03-05T11:39:58.199Z
+
+======================================================================
+  DB EVENTS IN DASHBOARD WINDOW (IST midnight -> now)
+======================================================================
+  PRODUCTIVE      32 events     85.9 min
+  UNCERTAIN       54 events     64.4 min
+
+======================================================================
+  DB ALL-TIME BREAKDOWN (sanity check)
+======================================================================
+  DISTRACTIVE    119 events    200.0 min    -> 2026-03-03T21:14:29
+  PRODUCTIVE     701 events    637.8 min    -> 2026-03-04T20:32:20
+  UNCERTAIN      261 events    250.4 min   2026-03-01T18:30:00 -> 2026-03-04T20:32:53
+
+======================================================================
+  LAST 5 DISTRACTIVE EVENTS (most recent first)
+======================================================================
+  2026-03-03T21:14:29    60.1s  https://www.youtube.com/feed/subscriptions
+  2026-03-03T21:09:29    26.0s  https://www.youtube.com/feed/subscriptions
+  2026-03-03T20:54:24   781.3s  https://www.youtube.com/watch?v=Og6Ja2TlGhM
+  2026-03-03T20:53:24    33.0s  https://www.youtube.com/watch?v=Og6Ja2TlGhM
+  2026-03-03T20:50:26    26.6s  https://www.youtube.com/watch?v=Og6Ja2TlGhM
+
+======================================================================
+  query_top5.py OUTPUT (dashboard range)
+======================================================================
+  totalRows      : 32
+  stale          : False  (None min old)
+  lastUpdated    : 2026-03-04T20:32:20.756000Z
+
+  productiveTop5  (5 items):
+    Localhost                           46m  (2790s)
+    Antigravity                         24m  (1445s)
+    Overleaf.com                         6m  (372s)
+    Mapping digital attention.pdf        5m  (359s)
+    Ieee_conference_template.pdf         1m  (94s)
+
+  distractingTop5 (0 items):

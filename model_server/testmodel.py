@@ -10,7 +10,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 #  CONFIG
 # ═══════════════════════════════════════════════════════════════════
 MODEL_DIR  = "C:/focus_tracker"
-ONNX_FILE  = "model_quint8_avx2.onnx"
+ONNX_FILE  = "model_O4.onnx"
 THRESHOLD  = 0.60
 
 CANDIDATE_LABELS = [

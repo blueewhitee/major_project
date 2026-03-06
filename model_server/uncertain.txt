@@ -1,0 +1,30 @@
+ 781.3s |                      | https://fast.com/                        | Internet Speed Test | Fast.com
+ 450.1s |                      | https://gemini.google.com/app?hl=en-IN   | Google Gemini
+ 245.1s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+ 237.6s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+ 234.2s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+ 229.7s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+ 186.9s | claude.exe           | app://claude.exe                         | Claude
+ 149.1s | claude.exe           | app://claude.exe                         | Claude
+ 139.1s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+ 114.4s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+ 106.5s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+ 102.5s | claude.exe           | app://claude.exe                         | Claude
+  89.6s |                      | https://gemini.google.com/app?hl=en-IN   | Google Gemini
+  83.3s | claude.exe           | app://claude.exe                         | Claude
+  74.1s | claude.exe           | app://claude.exe                         | Claude
+  72.2s | claude.exe           | app://claude.exe                         | Claude
+  52.8s | claude.exe           | app://claude.exe                         | Claude
+  48.7s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+  36.6s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+  35.2s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+  33.5s |                      | https://chat.qwen.ai/c/e1e63276-d4b8-4b6 | Qwen Chat
+  31.9s |                      | https://in.turnitin.com/                 | Empower Students to Do Their B
+  31.5s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+  29.6s |                      | https://chat.qwen.ai/c/e1e63276-d4b8-4b6 | Qwen Chat
+  28.0s |                      | chrome://newtab/                         | New tab
+  27.5s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+  22.3s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape
+  18.7s |                      | https://www.srmist.edu.in/faculty/dr-a-p | Dr. Pandian A - SRMIST
+  16.3s |                      | https://chat.qwen.ai/c/e1e63276-d4b8-4b6 | Qwen Chat
+  16.2s | Antigravity.exe      | app://antigravity.exe                    | poc3 - Antigravity - Ieee Pape

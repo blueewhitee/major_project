@@ -249,6 +249,37 @@ def _build_browser_description(url: str, title: str, data: dict) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════
+#  CLASSIFY  retry wrapper
+# ═══════════════════════════════════════════════════════════════════
+def _classify_with_retry(classify_fn, event: dict, max_retries: int = 3) -> dict | None:
+    """Call classify_fn(event) retrying up to max_retries times on 5xx / network errors."""
+    delay = 2.0
+    last_exc: Exception | None = None
+    for attempt in range(max_retries):
+        try:
+            return classify_fn(event)
+        except requests.exceptions.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status in (500, 502, 503, 504):
+                last_exc = exc
+                if attempt < max_retries - 1:
+                    ts = datetime.now().strftime("%H:%M:%S")
+                    print(f"  [{ts}] Model server {status}, retry {attempt + 1}/{max_retries - 1} in {delay:.0f}s...")
+                    time.sleep(delay)
+                    delay *= 2
+                continue
+            raise  # non-5xx — don't retry
+        except requests.exceptions.RequestException as exc:
+            last_exc = exc
+            if attempt < max_retries - 1:
+                ts = datetime.now().strftime("%H:%M:%S")
+                print(f"  [{ts}] Request error, retry {attempt + 1}/{max_retries - 1} in {delay:.0f}s...")
+                time.sleep(delay)
+                delay *= 2
+    raise last_exc  # type: ignore[misc]
+
+
+# ═══════════════════════════════════════════════════════════════════
 #  POLL  helpers
 # ═══════════════════════════════════════════════════════════════════
 _known_durations = {}
@@ -259,27 +290,38 @@ def poll_browser(state: dict) -> tuple[int, int]:
     events   = fetch_events(BROWSER_BUCKET, state["last_timestamp"])
     classified = skipped = 0
 
-    for i, event in enumerate(events):
+    for event in events:
         event_id = event.get("id")
         duration = event.get("duration", 0)
         data     = event.get("data", {})
 
-        state["last_timestamp"] = event["timestamp"]
-
+        # ── Skip events we've already fully processed at this duration ──
         prev_dur = _known_durations.get(("browser", event_id), -1)
         if duration <= prev_dur:
+            state["last_timestamp"] = event["timestamp"]
             continue
 
+        # ── Explicitly skip short / incognito events ──
         if duration < MIN_DURATION:
+            state["last_timestamp"] = event["timestamp"]
             skipped += 1
             continue
         if data.get("incognito"):
+            state["last_timestamp"] = event["timestamp"]
             skipped += 1
             continue
 
-        _known_durations[("browser", event_id)] = duration
+        # ── Classify (with retry).  Only advance state on success. ──
+        try:
+            result = _classify_with_retry(classify_browser_event, event)
+        except Exception as exc:
+            ts = datetime.now().strftime("%H:%M:%S")
+            print(f"  [{ts}] [WEB] Classification failed after retries — will retry next poll: {exc}")
+            break  # leave state pointing at the failed event so it is retried
 
-        result = classify_browser_event(event)
+        _known_durations[("browser", event_id)] = duration
+        state["last_timestamp"] = event["timestamp"]
+
         if result:
             classified += 1
             label = result["classification"]
@@ -302,22 +344,33 @@ def poll_apps(state: dict, window_bucket: str) -> tuple[int, int]:
         data     = event.get("data", {})
         app_name = data.get("app", "").strip()
 
-        state["last_timestamp_window"] = event["timestamp"]
-
+        # ── Skip events we've already fully processed at this duration ──
         prev_dur = _known_durations.get(("app", event_id), -1)
         if duration <= prev_dur:
+            state["last_timestamp_window"] = event["timestamp"]
             continue
 
+        # ── Explicitly skip short / system events ──
         if duration < MIN_DURATION:
+            state["last_timestamp_window"] = event["timestamp"]
             skipped += 1
             continue
         if app_name.lower() in SKIP_APPS:
+            state["last_timestamp_window"] = event["timestamp"]
             skipped += 1
             continue
 
-        _known_durations[("app", event_id)] = duration
+        # ── Classify (with retry).  Only advance state on success. ──
+        try:
+            result = _classify_with_retry(classify_app_event, event)
+        except Exception as exc:
+            ts = datetime.now().strftime("%H:%M:%S")
+            print(f"  [{ts}] [APP] Classification failed after retries — will retry next poll: {exc}")
+            break  # leave state pointing at the failed event so it is retried
 
-        result = classify_app_event(event)
+        _known_durations[("app", event_id)] = duration
+        state["last_timestamp_window"] = event["timestamp"]
+
         if result:
             classified += 1
             label       = result["classification"]

@@ -175,14 +175,17 @@ export function calculateTotalDuration(events: AWEvent[]): number {
   return events.reduce((acc, curr) => acc + curr.duration, 0)
 }
 
-/** Build date range for the last N days in YYYY-MM-DD format. */
+/** Build date range for the last N days using local midnight boundaries.
+ *  Uses local Date constructor (not UTC) so ActivityWatch receives the correct
+ *  timezone-aware ISO string — e.g. "2026-03-03T18:30:00.000Z" for IST midnight.
+ */
 export function getDateRangeForLastDays(days: number): { start: string; end: string } {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - days)
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 0, 0, 0, 0)
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+    start: start.toISOString(),
+    end: end.toISOString(),
   }
 }
 

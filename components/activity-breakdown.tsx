@@ -7,6 +7,7 @@ import {
   type Top5Response,
   type VideoContentBreakdown,
 } from "@/lib/activitywatch"
+import { UncertainActivityReview } from "./uncertain-activity-review"
 
 const TOP_DISTRACTING_COUNT = 5
 type Top5Window = "today" | "7d"
@@ -239,6 +240,14 @@ export function ActivityBreakdown() {
       clearInterval(top5Timer)
     }
   }, [top5Window])
+
+  const refreshTop5 = () => {
+    setTop5Loading(true)
+    fetchTop5Activities(top5Window)
+      .then((data) => setTop5(data))
+      .catch((err) => setTop5Error(err instanceof Error ? err.message : "Failed"))
+      .finally(() => setTop5Loading(false))
+  }
   const productive = top5?.productiveTop5 ?? []
   const distracting = top5?.distractingTop5 ?? []
 
@@ -250,18 +259,16 @@ export function ActivityBreakdown() {
           <button
             type="button"
             onClick={() => setTop5Window("today")}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-              top5Window === "today" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-            }`}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${top5Window === "today" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              }`}
           >
             Today
           </button>
           <button
             type="button"
             onClick={() => setTop5Window("7d")}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-              top5Window === "7d" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-            }`}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${top5Window === "7d" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              }`}
           >
             7 Days
           </button>
@@ -356,8 +363,11 @@ export function ActivityBreakdown() {
         </div>
       </div>
 
+      {/* Uncertain Activity Review */}
+      <UncertainActivityReview onOverrideApplied={refreshTop5} />
+
       {/* Video Consumption */}
-      <div className="mt-auto pt-6 border-t border-gray-100">
+      <div className="mt-auto pt-6 border-t border-gray-100 flex-shrink-0">
         <h3 className="text-sm font-bold text-gray-900 mb-3">Video Consumption</h3>
         {videoLoading ? (
           <div className="h-4 bg-gray-100 rounded-full animate-pulse" />

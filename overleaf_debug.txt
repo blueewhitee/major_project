@@ -1,0 +1,14 @@
+OVERLEAF BY CLASSIFICATION:
+  PRODUCTIVE | count=10 | total_seconds=371.7
+
+ALL OVERLEAF EVENTS:
+  cls=PRODUCTIVE dur=150.0s ts=2026-03-04T19:11:21.288000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
+  cls=PRODUCTIVE dur=19.4s ts=2026-03-04T19:10:59.557000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
+  cls=PRODUCTIVE dur=5.2s ts=2026-03-04T19:10:23.991000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
+  cls=PRODUCTIVE dur=16.5s ts=2026-03-04T19:09:51.164000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
+  cls=PRODUCTIVE dur=52.9s ts=2026-03-04T19:08:24.539000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
+  cls=PRODUCTIVE dur=36.3s ts=2026-03-04T19:05:27.408000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
+  cls=PRODUCTIVE dur=3.3s ts=2026-03-04T19:05:19.125000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
+  cls=PRODUCTIVE dur=44.6s ts=2026-03-04T19:04:26.203000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
+  cls=PRODUCTIVE dur=5.6s ts=2026-03-04T19:04:12.989000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
+  cls=PRODUCTIVE dur=37.8s ts=2026-03-04T19:03:25.987000Z url=https://www.overleaf.com/project/69a7fb702ed3b2b60935dd2d
