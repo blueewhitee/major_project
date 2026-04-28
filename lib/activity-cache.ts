@@ -12,13 +12,15 @@ const CACHE_DIR =
 const CACHE_TTL_MS = 90_000 // 90 seconds — consider cache fresh
 const REFRESH_DEBOUNCE_MS = 30_000 // Don't refresh more than once per 30s
 
-type CacheKey =
+export type CacheKey =
   | "entertainment-today"
   | "entertainment-week"
   | "entertainment-month"
   | "focus-today"
   | "last-12h"
   | "web-events-today"
+  | "web-events-week"
+  | "web-events-month"
 
 interface CacheEntry<T> {
   data: T

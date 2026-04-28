@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 
-const TABS = ["Summary", "Category", "Timeline", "Settings"] as const
+const TABS = ["Summary", "Category", "Timeline"] as const
 type Tab = (typeof TABS)[number]
 
 interface SegmentedControlProps {

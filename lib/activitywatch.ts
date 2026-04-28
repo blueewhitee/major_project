@@ -199,6 +199,42 @@ export function getTodayRange(): { start: string; end: string } {
   }
 }
 
+/**
+ * Web-bucket time windows for the entertainment / Activity Feed (must match
+ * `activity-cache-refresh` and GET /api/activity/entertainment-triggers).
+ * - today: local midnight → reference time
+ * - week: rolling 7 days → reference time
+ * - month: rolling 30 days → reference time
+ */
+export function getEntertainmentFeedWebRange(
+  range: "today" | "week" | "month",
+  reference: Date = new Date(),
+): { start: string; end: string } {
+  const end = reference.toISOString()
+  if (range === "today") {
+    const sod = new Date(
+      reference.getFullYear(),
+      reference.getMonth(),
+      reference.getDate(),
+      0,
+      0,
+      0,
+      0,
+    )
+    return { start: sod.toISOString(), end }
+  }
+  if (range === "week") {
+    return {
+      start: new Date(reference.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      end,
+    }
+  }
+  return {
+    start: new Date(reference.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    end,
+  }
+}
+
 /** List bucket IDs from ActivityWatch (GET /api/0/buckets/). */
 async function listBucketIds(): Promise<string[]> {
   const res = await fetch(`${AW_BASE_URL}/buckets/`)

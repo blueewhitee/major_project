@@ -88,6 +88,12 @@ function titleCaseFromSlug(value: string) {
 
 type RangeOption = "today" | "week" | "month"
 
+function rangeSheetLabel(r: RangeOption): string {
+  if (r === "today") return "Today"
+  if (r === "week") return "Last 7 days"
+  return "Last 30 days"
+}
+
 export function TriggerAnalysisFeed() {
   const [data, setData] = useState<EntertainmentResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -128,13 +134,14 @@ export function TriggerAnalysisFeed() {
 
   useEffect(() => {
     if (!selectedLabel) return
+    const labelForRequest = selectedLabel
     let cancelled = false
     async function fetchTitles() {
       setTitlesLoading(true)
       setTitles([])
       try {
         const res = await fetch(
-          `/api/activity/entertainment-triggers/${encodeURIComponent(selectedLabel)}/titles`,
+          `/api/activity/entertainment-triggers/${encodeURIComponent(labelForRequest)}/titles?range=${range}`,
           { cache: "no-store" },
         )
         if (!res.ok) throw new Error("Failed to fetch titles")
@@ -150,7 +157,7 @@ export function TriggerAnalysisFeed() {
     return () => {
       cancelled = true
     }
-  }, [selectedLabel])
+  }, [selectedLabel, range])
 
   const triggerPairs = useMemo(() => {
     const source = data?.byTrigger ?? {}
@@ -302,14 +309,16 @@ export function TriggerAnalysisFeed() {
         >
           <SheetHeader>
             <SheetTitle>
-              {selectedLabel ?? "Activity details"} · Today
+              {selectedLabel ?? "Activity details"} · {rangeSheetLabel(range)}
             </SheetTitle>
           </SheetHeader>
           <div className="mt-6 flex flex-col gap-3">
             {titlesLoading ? (
               <p className="text-sm text-gray-500">Loading titles...</p>
             ) : titles.length === 0 ? (
-              <p className="text-sm text-gray-500">No titles found for today.</p>
+              <p className="text-sm text-gray-500">
+                No titles found for {rangeSheetLabel(range).toLowerCase()}.
+              </p>
             ) : (
               titles.map((t, i) => (
                 <div

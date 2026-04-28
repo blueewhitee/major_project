@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
-import { buildTitlesForLabel, type AWBucketEvent } from "@/lib/activitywatch"
-import { readCache } from "@/lib/activity-cache"
+import {
+  buildTitlesForLabel,
+  getEntertainmentFeedWebRange,
+  type AWBucketEvent,
+} from "@/lib/activitywatch"
+import { readCache, type CacheKey } from "@/lib/activity-cache"
 
 const AW_BASE = process.env.ACTIVITYWATCH_URL ?? "http://localhost:5600/api/0"
 const HOST = process.env.NEXT_PUBLIC_ACTIVITYWATCH_HOST ?? ""
+
+const WEB_EVENTS_CACHE: Record<"today" | "week" | "month", CacheKey> = {
+  today: "web-events-today",
+  week: "web-events-week",
+  month: "web-events-month",
+}
 
 async function fetchEvents(
   bucketId: string,
@@ -21,8 +31,8 @@ async function fetchEvents(
 /**
  * GET /api/activity/entertainment-triggers/[label]/titles
  *
- * Returns unique page titles for the given label, today only.
- * Uses cached web events when available to avoid bottleneck.
+ * Query: range = today | week | month (same windows as entertainment-triggers).
+ * Uses cached web events when available; otherwise fetches ActivityWatch.
  */
 export async function GET(
   request: NextRequest,
@@ -34,16 +44,18 @@ export async function GET(
     const { label } = await params
     const decodedLabel = decodeURIComponent(label)
 
-    const cached = await readCache<AWBucketEvent[]>("web-events-today")
+    const rawRange = request.nextUrl.searchParams.get("range") ?? "today"
+    const range =
+      rawRange === "week" || rawRange === "month" ? rawRange : "today"
+
+    const cacheKey = WEB_EVENTS_CACHE[range]
+    const cached = await readCache<AWBucketEvent[]>(cacheKey)
     let events: AWBucketEvent[]
 
     if (cached?.data) {
       events = cached.data as AWBucketEvent[]
     } else {
-      const now = new Date()
-      const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
-      const start = sod.toISOString()
-      const end = now.toISOString()
+      const { start, end } = getEntertainmentFeedWebRange(range)
       const webBucket = `aw-watcher-web-chrome_${HOST}`
       events = await fetchEvents(webBucket, start, end)
     }

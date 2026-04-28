@@ -6,6 +6,7 @@
 
 import {
   buildTriggerBreakdown,
+  getEntertainmentFeedWebRange,
   isDistracting,
   type AWBucketEvent,
 } from "@/lib/activitywatch"
@@ -65,11 +66,9 @@ async function doRefresh(): Promise<void> {
   if (!HOST) return
   try {
     const now = new Date()
-    const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
-    const startToday = sod.toISOString()
-    const end = now.toISOString()
-    const startWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    const startMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { start: startToday, end } = getEntertainmentFeedWebRange("today", now)
+    const { start: startWeek } = getEntertainmentFeedWebRange("week", now)
+    const { start: startMonth } = getEntertainmentFeedWebRange("month", now)
     const tenHoursAgo = new Date(now.getTime() - 10 * 60 * 60 * 1000).toISOString()
 
     const windowBucket = `aw-watcher-window_${HOST}`
@@ -99,6 +98,8 @@ async function doRefresh(): Promise<void> {
       writeCache("entertainment-week", breakdownWeek),
       writeCache("entertainment-month", breakdownMonth),
       writeCache("web-events-today", webToday),
+      writeCache("web-events-week", webWeek),
+      writeCache("web-events-month", webMonth),
     ])
 
     let distractingSeconds = 0
